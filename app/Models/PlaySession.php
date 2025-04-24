@@ -22,9 +22,13 @@ class PlaySession extends Model
         'child_id',
         'shift_id',
         'user_id',
-        'start_time',
-        'end_time',
-        'duration_min',
+        'planned_hours',
+        'actual_hours',
+        'started_at',
+        'ended_at',
+        'amount_paid',
+        'payment_method',
+        'notes',
         'discount_pct',
         'total_cost',
     ];
@@ -35,11 +39,13 @@ class PlaySession extends Model
      * @var array<string, string>
      */
     protected $casts = [
-        'start_time' => 'datetime',
-        'end_time' => 'datetime',
-        'duration_min' => 'integer',
+        'started_at' => 'datetime',
+        'ended_at' => 'datetime',
+        'planned_hours' => 'decimal:2',
+        'actual_hours' => 'decimal:2',
         'discount_pct' => 'decimal:2',
         'total_cost' => 'decimal:2',
+        'amount_paid' => 'decimal:2',
     ];
 
     /**
@@ -90,5 +96,21 @@ class PlaySession extends Model
     public function alert(): HasOne
     {
         return $this->hasOne(Alert::class);
+    }
+
+    /**
+     * Get start_time attribute (maps to started_at).
+     */
+    public function getStartTimeAttribute()
+    {
+        return $this->started_at;
+    }
+
+    /**
+     * Get end_time attribute (maps to ended_at).
+     */
+    public function getEndTimeAttribute()
+    {
+        return $this->ended_at;
     }
 } 

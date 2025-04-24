@@ -15,7 +15,10 @@ return new class extends Migration
             $table->id();
             $table->foreignId('cashier_id')->constrained('users');
             $table->date('date');
-            $table->enum('type', ['morning', 'night']);
+            $table->string('type')->comment('Allowed values: morning, evening, full');
+            $table->decimal('opening_amount', 10, 2);
+            $table->decimal('closing_amount', 10, 2)->nullable();
+            $table->text('notes')->nullable();
             $table->timestamp('opened_at');
             $table->timestamp('closed_at')->nullable();
             $table->timestamps();

@@ -14,9 +14,11 @@ return new class extends Migration
         Schema::create('children', function (Blueprint $table) {
             $table->id();
             $table->string('name');
-            $table->date('birth_date');
+            $table->date('birth_date')->nullable();
+            $table->integer('age')->nullable();
             $table->string('guardian_name');
-            $table->string('guardian_phone');
+            $table->string('guardian_phone')->nullable();
+            $table->string('guardian_contact')->nullable();
             $table->text('notes')->nullable();
             $table->timestamps();
         });

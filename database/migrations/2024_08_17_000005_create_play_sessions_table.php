@@ -16,11 +16,15 @@ return new class extends Migration
             $table->foreignId('child_id')->constrained();
             $table->foreignId('shift_id')->constrained();
             $table->foreignId('user_id')->constrained();
-            $table->timestamp('start_time');
-            $table->timestamp('end_time')->nullable();
-            $table->integer('duration_min')->nullable();
+            $table->integer('planned_hours')->nullable();
+            $table->integer('actual_hours')->nullable();
+            $table->timestamp('started_at')->nullable();
+            $table->timestamp('ended_at')->nullable();
+            $table->decimal('amount_paid', 10, 2)->nullable();
+            $table->string('payment_method')->nullable();
+            $table->string('notes')->nullable();
             $table->decimal('discount_pct', 5, 2)->default(0);
-            $table->decimal('total_cost', 10, 2);
+            $table->decimal('total_cost', 10, 2)->nullable();
             $table->timestamps();
         });
     }

@@ -14,6 +14,7 @@ return Application::configure(basePath: dirname(__DIR__))
         // alias so we can call ->middleware('role:admin')
         $middleware->alias([
             'role' => \App\Http\Middleware\RoleMiddleware::class,
+            'active.shift' => \App\Http\Middleware\CheckActiveShift::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions) {
