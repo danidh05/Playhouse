@@ -34,10 +34,6 @@
         <div class="bg-gray-50 p-4 rounded-lg">
             <h2 class="text-lg font-semibold mb-3">Financial Summary</h2>
             <div class="space-y-2">
-                <p><span class="font-medium">Opening Amount:</span> ${{ number_format($shift->opening_amount, 2) }}</p>
-                @if($shift->closed_at)
-                    <p><span class="font-medium">Closing Amount:</span> ${{ number_format($shift->closing_amount, 2) }}</p>
-                @endif
                 <p><span class="font-medium">Total Revenue:</span> ${{ number_format($totalRevenue ?? 0, 2) }}</p>
                 <p><span class="font-medium">- Play Sessions:</span> ${{ number_format($sessionsTotal ?? 0, 2) }}</p>
                 <p><span class="font-medium">- Sales:</span> ${{ number_format($salesTotal ?? 0, 2) }}</p>

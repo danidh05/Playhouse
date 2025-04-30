@@ -20,6 +20,7 @@ class Sale extends Model
         'shift_id',
         'user_id',
         'total_amount',
+        'amount_paid',
         'payment_method',
         'child_id',
         'play_session_id',
@@ -32,6 +33,7 @@ class Sale extends Model
      */
     protected $casts = [
         'total_amount' => 'decimal:2',
+        'amount_paid' => 'decimal:2',
     ];
 
     /**
@@ -40,7 +42,6 @@ class Sale extends Model
      * @var array<int, string>
      */
     protected $appends = [
-        'amount_paid',
         'change_given',
     ];
 
@@ -82,25 +83,6 @@ class Sale extends Model
     public function play_session(): BelongsTo
     {
         return $this->belongsTo(PlaySession::class);
-    }
-    
-    /**
-     * Get the amount paid value.
-     * This is an approximation based on typical payment handling.
-     * 
-     * @return float
-     */
-    public function getAmountPaidAttribute()
-    {
-        // For USD, we'd typically round up to nearest dollar for cash payments
-        // For LBP, we'd typically use the exact amount
-        if ($this->payment_method === 'USD') {
-            // Round up to the nearest dollar
-            return ceil($this->total_amount);
-        }
-        
-        // For LBP, return the exact amount
-        return $this->total_amount;
     }
     
     /**

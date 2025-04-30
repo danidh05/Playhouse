@@ -42,8 +42,6 @@
                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Cashier</th>
                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Started</th>
                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Ended</th>
-                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Opening</th>
-                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Closing</th>
                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                 </tr>
@@ -56,8 +54,6 @@
                     <td class="px-6 py-4 whitespace-nowrap">{{ $shift->cashier->name }}</td>
                     <td class="px-6 py-4 whitespace-nowrap">{{ $shift->opened_at->format('H:i') }}</td>
                     <td class="px-6 py-4 whitespace-nowrap">{{ $shift->closed_at ? $shift->closed_at->format('H:i') : 'Active' }}</td>
-                    <td class="px-6 py-4 whitespace-nowrap">${{ number_format($shift->opening_amount, 2) }}</td>
-                    <td class="px-6 py-4 whitespace-nowrap">{{ $shift->closed_at ? '$'.number_format($shift->closing_amount, 2) : '-' }}</td>
                     <td class="px-6 py-4 whitespace-nowrap">
                         <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
                             {{ $shift->closed_at ? 'bg-red-100 text-red-800' : 'bg-green-100 text-green-800' }}">

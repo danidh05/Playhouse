@@ -220,6 +220,7 @@ class CashierFeatureTest extends TestCase
             'actual_hours' => 2,
             'amount_paid' => 20.00,
             'payment_method' => 'cash',
+            'total_amount' => 20.00,
         ];
 
         $response = $this->actingAs($this->cashier)
@@ -308,6 +309,9 @@ class CashierFeatureTest extends TestCase
             'shift_id' => $this->shift->id,
             'total_amount' => 39.98,
         ];
+        if ($paymentMethod === 'LBP') {
+            $saleData['total_amount_lbp'] = 39.98 * config('play.lbp_exchange_rate', 90000);
+        }
         
         $response = $this->actingAs($this->cashier)
             ->post(route('cashier.sales.store'), $saleData);

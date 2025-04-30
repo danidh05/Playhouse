@@ -112,14 +112,39 @@ class SalesController extends Controller
             
             // Set payment method and handle amount calculations
             $paymentMethod = $request->payment_method;
-            $totalAmount = 0;
+            $lbpRate = config('play.lbp_exchange_rate', 90000);
+
+            // Get the play session if it exists
+            $playSession = null;
+            if ($playSessionId) {
+                $playSession = \App\Models\PlaySession::find($playSessionId);
+            }
             
-            // If payment method is LBP, we need to calculate the equivalent USD amount
+            // Calculate total amount in USD
             if ($paymentMethod === 'LBP') {
-                $totalAmount = $request->total_amount_lbp;
+                // Get the raw LBP amounts
+                $amountPaidLBP = $request->amount_paid;
+                
+                // If there's a play session, use its total
+                if ($playSession) {
+                    $totalAmountLBP = $playSession->total_cost * $lbpRate;
+                } else {
+                    $totalAmountLBP = $request->total_amount_lbp;
+                }
+                
+                // Convert to USD for storage
+                $totalAmount = round($totalAmountLBP / $lbpRate, 2);
+                $amountPaid = round($amountPaidLBP / $lbpRate, 2);
             } else {
-                // Default to USD 
-                $totalAmount = $request->total_amount;
+                // For USD payments
+                $amountPaid = round($request->amount_paid, 2);
+                
+                // If there's a play session, use its total
+                if ($playSession) {
+                    $totalAmount = round($playSession->total_cost, 2);
+                } else {
+                    $totalAmount = round($request->total_amount, 2);
+                }
             }
             
             // Create the sale
@@ -127,6 +152,7 @@ class SalesController extends Controller
             $sale->shift_id = $shift->id;
             $sale->user_id = Auth::id();
             $sale->total_amount = $totalAmount;
+            $sale->amount_paid = $amountPaid;
             $sale->payment_method = $paymentMethod;
             $sale->child_id = $childId;
             $sale->play_session_id = $playSessionId;
@@ -158,7 +184,7 @@ class SalesController extends Controller
                 ]);
             }
             
-            return redirect()->route('cashier.sales.create')->with('success', 'Sale completed successfully');
+            return redirect()->route('cashier.sales.show', $sale)->with('success', 'Sale completed successfully');
         });
     }
 
@@ -167,9 +193,59 @@ class SalesController extends Controller
      */
     public function show(Sale $sale)
     {
-        $sale->load(['items.product', 'user', 'shift']);
+        $sale->load([
+          'items.product',
+          'user',
+          'shift',
+          'play_session',
+          'play_session.addOns'
+        ]);
+        
+        // If there's a play session with zero actual_hours but it has ended, calculate the hours
+        if ($sale->play_session && $sale->play_session->ended_at) {
+            // Calculate actual hours if not set
+            if ($sale->play_session->actual_hours == 0) {
+                $startTime = $sale->play_session->started_at;
+                $endTime = $sale->play_session->ended_at;
+                $durationMinutes = $startTime->diffInMinutes($endTime);
+                $actualHours = $durationMinutes / 60;
+                
+                // Update play session actual hours
+                $sale->play_session->update(['actual_hours' => $actualHours]);
+            } else {
+                $actualHours = $sale->play_session->actual_hours;
+            }
+            
+            // Recalculate total cost to ensure it's correct
+            $hourlyRate = config('play.hourly_rate', 10.00);
+            $baseTotal = $actualHours * $hourlyRate;
+            
+            // Make sure add-ons are loaded
+            $sale->load('play_session.addOns');
+            
+            // Get add-ons total
+            $addOnsTotal = $sale->play_session->addOns->sum(function ($addOn) {
+                return $addOn->pivot->subtotal;
+            });
+            
+            // Apply discount only to time cost
+            $discountMultiplier = (100 - ($sale->play_session->discount_pct ?? 0)) / 100;
+            $timeCost = $baseTotal * $discountMultiplier;
+            $totalCost = round($timeCost + $addOnsTotal, 2);
+            
+            // Only update if the total cost has changed
+            if (abs($sale->play_session->total_cost - $totalCost) > 0.01) {
+                $sale->play_session->update(['total_cost' => $totalCost]);
+                $sale->update(['total_amount' => $totalCost]);
+                
+                // Refresh the model
+                $sale->load(['play_session', 'play_session.addOns']);
+            }
+        }
+        
         return view('cashier.sales.show', compact('sale'));
     }
+    
 
     /**
      * Get product price for AJAX request

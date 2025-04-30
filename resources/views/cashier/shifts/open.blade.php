@@ -8,9 +8,10 @@
         <div class="bg-primary p-4 text-white">
             <h1 class="text-xl font-bold">Start Your Shift</h1>
         </div>
-        
+
         <div class="p-6">
-            <p class="text-gray-700 text-center mb-6">Welcome! Please provide the information below to start your shift.</p>
+            <p class="text-gray-700 text-center mb-6">Welcome! Please provide the information below to start your shift.
+            </p>
 
             @if ($errors->any())
             <div class="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 mb-6">
@@ -27,7 +28,7 @@
 
                 <div class="mb-6">
                     <label class="block text-sm font-semibold text-gray-700 mb-2">Shift Type</label>
-                    
+
                     <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                         @foreach($shiftTypes as $value => $label)
                         <div class="flex items-center">
@@ -42,23 +43,13 @@
                     </div>
                 </div>
 
-                <div class="mb-6">
-                    <label for="opening_amount" class="block text-sm font-semibold text-gray-700 mb-1">Opening Cash Amount (USD)</label>
-                    <div class="flex">
-                        <span class="inline-flex items-center px-3 bg-gray-100 border border-r-0 border-gray-300 rounded-l-md text-gray-700">$</span>
-                        <input type="number" step="0.01" min="0" 
-                            class="flex-1 px-4 py-2 border border-gray-300 rounded-r-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary" 
-                            id="opening_amount" name="opening_amount" 
-                            value="{{ old('opening_amount', '0.00') }}" 
-                            placeholder="Enter opening cash amount" required>
-                    </div>
-                    <p class="mt-1 text-sm text-gray-500">Enter the amount of cash you're starting your shift with.</p>
-                </div>
+                <input type="hidden" id="opening_amount" name="opening_amount" value="{{ old('opening_amount', '0.00') }}">
 
                 <div class="mb-6">
                     <label for="notes" class="block text-sm font-semibold text-gray-700 mb-1">Notes (Optional)</label>
-                    <textarea class="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary" 
-                        id="notes" name="notes" rows="3" 
+                    <textarea
+                        class="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary"
+                        id="notes" name="notes" rows="3"
                         placeholder="Any special notes about this shift?">{{ old('notes') }}</textarea>
                 </div>
 
@@ -73,9 +64,12 @@
                 </div>
 
                 <div>
-                    <button type="submit" class="w-full py-2 px-4 bg-primary hover:bg-primary-dark text-white font-bold rounded-md transition duration-200 flex justify-center items-center">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
+                    <button type="submit"
+                        class="w-full py-2 px-4 bg-primary hover:bg-primary-dark text-white font-bold rounded-md transition duration-200 flex justify-center items-center">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24"
+                            stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
                         </svg>
                         Start Shift
                     </button>
@@ -84,4 +78,4 @@
         </div>
     </div>
 </div>
-@endsection 
+@endsection

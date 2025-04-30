@@ -39,17 +39,19 @@
 
         @if(!isset($child))
         <div class="mb-4">
-            <label for="child_id" class="block text-gray-700 text-sm font-bold mb-2">Select Child</label>
-            <select name="child_id" id="child_id"
-                class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline @error('child_id') border-red-500 @enderror"
-                required>
-                <option value="">-- Select a child --</option>
-                @foreach($children as $childOption)
-                <option value="{{ $childOption->id }}">
-                    {{ $childOption->name }} ({{ $childOption->age ?? 'Age unknown' }})
-                </option>
-                @endforeach
-            </select>
+            <label for="child_display" class="block text-gray-700 text-sm font-bold mb-2">Select Child</label>
+            <div class="relative">
+                <input type="text" id="child_display" 
+                    class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline @error('child_id') border-red-500 @enderror"
+                    placeholder="Click to select a child" readonly
+                    value="{{ old('child_id') ? $children->firstWhere('id', old('child_id'))->name : '' }}" required>
+                <input type="hidden" name="child_id" id="child_id_input" value="{{ old('child_id') }}" required>
+                <button type="button" id="select_child_btn" class="absolute right-0 top-0 h-full px-3 text-gray-600">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                        <path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd" />
+                    </svg>
+                </button>
+            </div>
             @error('child_id')
             <p class="text-red-500 text-xs mt-1">{{ $message }}</p>
             @enderror
@@ -108,4 +110,72 @@
         </div>
     </form>
 </div>
+
+<!-- Child Selection Modal -->
+@if(!isset($child))
+<div id="child-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center hidden z-50">
+    <div class="bg-white rounded-lg p-6 w-1/2 max-h-3/4 overflow-y-auto">
+        <div class="flex justify-between items-center mb-4">
+            <h2 class="text-xl font-bold">Select Child</h2>
+            <button onclick="closeChildModal()" class="text-gray-500 hover:text-gray-700">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+            </button>
+        </div>
+        
+        <div class="mb-4">
+            <input type="text" id="child-search" placeholder="Search children..." class="border border-gray-300 rounded w-full p-2 mb-4">
+            
+            <div id="children-list">
+                @foreach($children as $childOption)
+                <div class="child-item p-3 border-b hover:bg-gray-50 cursor-pointer" 
+                     onclick="selectChild({{ $childOption->id }}, '{{ $childOption->name }}')">
+                    <div class="font-medium">{{ $childOption->name }}</div>
+                    <div class="text-sm text-gray-500">{{ $childOption->age ?? 'Age unknown' }}</div>
+                </div>
+                @endforeach
+            </div>
+        </div>
+    </div>
+</div>
+@endif
+
+@endsection
+
+@section('scripts')
+@if(!isset($child))
+<script>
+    document.getElementById('select_child_btn').addEventListener('click', function() {
+        document.getElementById('child-modal').classList.remove('hidden');
+    });
+    
+    document.getElementById('child_display').addEventListener('click', function() {
+        document.getElementById('child-modal').classList.remove('hidden');
+    });
+    
+    function closeChildModal() {
+        document.getElementById('child-modal').classList.add('hidden');
+    }
+    
+    function selectChild(childId, childName) {
+        document.getElementById('child_id_input').value = childId;
+        document.getElementById('child_display').value = childName;
+        closeChildModal();
+    }
+    
+    // Filter children based on search
+    document.getElementById('child-search').addEventListener('input', function() {
+        const searchText = this.value.toLowerCase();
+        document.querySelectorAll('.child-item').forEach(item => {
+            const childName = item.querySelector('.font-medium').textContent.toLowerCase();
+            if (childName.includes(searchText)) {
+                item.style.display = 'block';
+            } else {
+                item.style.display = 'none';
+            }
+        });
+    });
+</script>
+@endif
 @endsection

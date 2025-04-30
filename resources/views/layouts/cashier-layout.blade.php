@@ -58,6 +58,10 @@
             <div class="px-4 py-2 flex justify-between items-center border-b">
                 <div class="flex items-center space-x-4">
                     <!-- Main Navigation -->
+                    <a href="{{ route('cashier.dashboard') }}"
+                        class="px-3 py-1 text-primary {{ request()->routeIs('cashier.dashboard') ? 'border-b-2 border-primary font-medium' : '' }}">
+                        Dashboard
+                    </a>
                     <a href="{{ route('cashier.children.index') }}"
                         class="px-3 py-1 text-primary {{ request()->routeIs('cashier.children.*') ? 'border-b-2 border-primary font-medium' : '' }}">
                         Kids
@@ -74,6 +78,7 @@
                         class="px-3 py-1 text-primary {{ request()->routeIs('cashier.complaints.*') ? 'border-b-2 border-primary font-medium' : '' }}">
                         Complaints
                     </a>
+
                     <!-- Shift Management -->
                     <a href="{{ route('cashier.shifts.index') }}"
                         class="px-3 py-1 text-primary {{ request()->routeIs('cashier.shifts.*') ? 'border-b-2 border-primary font-medium' : '' }}">

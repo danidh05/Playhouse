@@ -84,7 +84,7 @@
                             </td>
                             <td class="px-6 py-4 whitespace-nowrap">
                                 <div class="text-sm font-medium text-gray-900">
-                                    {{ $session->start_time->diffForHumans(null, true) }}
+                                    <span id="duration-{{ $session->id }}"></span>
                                 </div>
                                 <div class="w-full bg-gray-200 rounded-full h-2.5 mt-2">
                                     @php
@@ -106,14 +106,9 @@
                                 $minutesRemainder = $minutesRemaining % 60;
                                 @endphp
                                 <div class="text-xs mt-1 text-right">
-                                    @if($minutesRemaining <= 0) <span class="text-red-600 font-medium">Time
-                                        exceeded</span>
-                                        @else
-                                        <span
-                                            class="{{ $percentage > 80 ? 'text-red-600' : ($percentage > 50 ? 'text-yellow-600' : 'text-green-600') }} font-medium">
-                                            Time left: {{ $hoursRemaining }}h {{ $minutesRemainder }}m
-                                        </span>
-                                        @endif
+                                    <span id="timeleft-{{ $session->id }}" class="{{ $percentage > 80 ? 'text-red-600' : ($percentage > 50 ? 'text-yellow-600' : 'text-green-600') }} font-medium">
+                                        Time left: {{ $hoursRemaining }}h {{ $minutesRemainder }}m
+                                    </span>
                                 </div>
                                 @endif
                             </td>
@@ -121,6 +116,10 @@
                                 <a href="{{ route('cashier.sessions.show-end', $session->id) }}"
                                     class="text-white bg-purple-600 hover:bg-purple-700 py-2 px-4 rounded-md">
                                     End Session
+                                </a>
+                                <a href="{{ route('cashier.sessions.show-addons', $session->id) }}"
+                                    class="ml-2 text-purple-700 bg-purple-100 hover:bg-purple-200 py-2 px-4 rounded-md border border-purple-300">
+                                    Add-ons
                                 </a>
                             </td>
                         </tr>
@@ -272,4 +271,60 @@
         </div>
     </div>
 </div>
+@endsection
+
+@section('scripts')
+<script>
+const sessions = [
+    @foreach($activeSessions as $session)
+    {
+        id: {{ $session->id }},
+        start: {{ $session->start_time->timestamp }},
+        planned: {{ $session->planned_hours ?? 0 }}
+    },
+    @endforeach
+];
+
+function pad(n) { return n < 10 ? '0' + n : n; }
+
+function formatDuration(seconds) {
+    const h = Math.floor(seconds / 3600);
+    const m = Math.floor((seconds % 3600) / 60);
+    const s = seconds % 60;
+    let out = '';
+    if (h > 0) out += h + 'h ';
+    if (m > 0 || h > 0) out += m + 'm ';
+    out += s + 's';
+    return out;
+}
+
+setInterval(function() {
+    const now = Math.floor(Date.now() / 1000);
+    sessions.forEach(function(session) {
+        const elapsed = now - session.start;
+        // Update duration
+        const durationElem = document.getElementById('duration-' + session.id);
+        if (durationElem) {
+            durationElem.textContent = formatDuration(elapsed);
+        }
+        // Update time left
+        const plannedSeconds = session.planned * 3600;
+        const remaining = Math.max(0, plannedSeconds - elapsed);
+        const hours = Math.floor(remaining / 3600);
+        const minutes = Math.floor((remaining % 3600) / 60);
+        const seconds = remaining % 60;
+        const timeStr = `Time left: ${pad(hours)}h ${pad(minutes)}m ${pad(seconds)}s`;
+        const elem = document.getElementById('timeleft-' + session.id);
+        if (elem) {
+            elem.textContent = timeStr;
+            if (remaining === 0 && !elem.classList.contains('alerted')) {
+                elem.classList.add('alerted');
+                elem.classList.remove('text-green-600', 'text-yellow-600');
+                elem.classList.add('text-red-600');
+                alert('Session for child has ended!');
+            }
+        }
+    });
+}, 1000);
+</script>
 @endsection

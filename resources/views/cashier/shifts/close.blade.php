@@ -32,7 +32,6 @@
                 <p class="mb-1">Date: {{ $shift->date->format('M d, Y') }}</p>
                 <p class="mb-1">Shift started: {{ $shift->opened_at->format('H:i') }}</p>
                 <p class="mb-1">Shift type: {{ ucfirst($shift->type) }}</p>
-                <p class="mb-1">Opening amount: ${{ number_format($shift->opening_amount, 2) }}</p>
                 <div class="border-t border-blue-200 my-2 pt-2">
                     @php
                         $duration = $shift->opened_at->diffAsCarbonInterval(now())->cascade();
@@ -45,16 +44,7 @@
                 @csrf
                 @method('PUT')
 
-                <div class="mb-6">
-                    <label for="closing_amount" class="block text-sm font-semibold text-gray-700 mb-1">Closing Cash Amount (USD)</label>
-                    <div class="flex">
-                        <span class="inline-flex items-center px-3 bg-gray-100 border border-r-0 border-gray-300 rounded-l-md text-gray-700">$</span>
-                        <input type="number" step="0.01" min="0" class="flex-1 px-4 py-2 border border-gray-300 rounded-r-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500" 
-                            id="closing_amount" name="closing_amount" value="{{ old('closing_amount', '0.00') }}" 
-                            placeholder="Enter closing cash amount" required>
-                    </div>
-                    <p class="mt-1 text-sm text-gray-500">Enter the final amount of cash at the end of your shift.</p>
-                </div>
+                <input type="hidden" id="closing_amount" name="closing_amount" value="{{ old('closing_amount', '0.00') }}">
 
                 <div class="mb-6">
                     <label for="notes" class="block text-sm font-semibold text-gray-700 mb-1">Closing Notes (Optional)</label>

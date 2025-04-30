@@ -114,10 +114,8 @@ class DashboardController extends Controller
      */
     private function calculateDailyRevenue($date)
     {
-        $salesRevenue = Sale::whereDate('created_at', $date)->sum('total_amount');
-        $sessionRevenue = PlaySession::whereDate('created_at', $date)->sum('total_cost');
-        
-        return $salesRevenue + $sessionRevenue;
+        // Only count sales revenue since play sessions are already included in sales
+        return Sale::whereDate('created_at', $date)->sum('total_amount');
     }
 
     /**

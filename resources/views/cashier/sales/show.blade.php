@@ -75,43 +75,134 @@
                         </tr>
                     </thead>
                     <tbody class="bg-white divide-y divide-gray-200">
-                        @foreach($sale->items as $item)
-                        <tr>
-                            <td class="px-4 py-3 whitespace-nowrap">
-                                <div>
+                        @php
+                        $lbpRate = config('play.lbp_exchange_rate');
+                        $suffix = $sale->payment_method === 'LBP' ? ' L.L' : '';
+                        $multiplier = $sale->payment_method === 'LBP' ? $lbpRate : 1;
+
+                        // Determine if we're using play session data or sale items
+                        if ($sale->play_session) {
+                        // Calculate play session cost
+                        $hourlyRate = config('play.hourly_rate', 10.00);
+
+                        // Handle case where actual_hours is 0 - calculate it from duration
+                        if ($sale->play_session->actual_hours == 0 && $sale->play_session->ended_at) {
+                        $startTime = $sale->play_session->started_at;
+                        $endTime = $sale->play_session->ended_at;
+                        $durationInMinutes = $startTime->diffInMinutes($endTime);
+                        // Use exact minutes for calculation, not rounded hours
+                        $calculatedHours = $durationInMinutes / 60;
+                        $actualHours = $calculatedHours;
+                        } else {
+                        $actualHours = $sale->play_session->actual_hours ?: 0;
+                        }
+
+                        // Format hours and minutes for display
+                        $hoursDisplay = floor($actualHours);
+                        $minutesDisplay = round(($actualHours - $hoursDisplay) * 60);
+                        $timeDisplay = ($hoursDisplay > 0 ? $hoursDisplay . 'h ' : '') . $minutesDisplay . 'm';
+
+                        // Calculate play session time cost (before discount)
+                        $rawTimeCost = $actualHours * $hourlyRate;
+
+                        // Apply discount if any (only to time cost)
+                        $discountPct = $sale->play_session->discount_pct ?? 0;
+                        if ($discountPct > 0) {
+                        $discountMultiplier = (100 - $discountPct) / 100;
+                        $sessionCost = $rawTimeCost * $discountMultiplier;
+                        } else {
+                        $sessionCost = $rawTimeCost;
+                        }
+
+                        // Calculate add-ons total separately (not discounted)
+                        $addOnsTotal = 0;
+                        foreach ($sale->play_session->addOns as $addOn) {
+                        $addOnsTotal += $addOn->pivot->subtotal;
+                        }
+
+                        // Final total = discounted time cost + add-ons total
+                        $calculatedTotal = $sessionCost + $addOnsTotal;
+
+                        // Use calculated total but verify against stored total
+                        $baseTotal = abs($calculatedTotal - $sale->play_session->total_cost) < 0.01 ? $sale->
+                            play_session->total_cost
+                            : $calculatedTotal;
+                            } else {
+                            $baseTotal = $sale->total_amount;
+                            $actualHours = 0;
+                            $timeDisplay = '';
+                            $sessionCost = 0;
+                            }
+
+                            $displayTotal = $baseTotal * $multiplier;
+                            @endphp
+
+                            @if($sale->play_session)
+                            <!-- Display play session as an item -->
+                            <tr>
+                                <td class="px-4 py-3 whitespace-nowrap">
+                                    <div class="text-sm font-medium text-gray-900">Play Session</div>
+                                    <div class="text-xs text-gray-500">
+                                        {{ $timeDisplay }}
+                                        @if($sale->play_session->discount_pct > 0)
+                                        ({{ $sale->play_session->discount_pct }}% discount)
+                                        @endif
+                                    </div>
+                                </td>
+                                <td class="px-4 py-3 whitespace-nowrap text-right text-sm">
+                                    {{ number_format(config('play.hourly_rate', 10.00) * $multiplier, 2) }}{{ $suffix }}/hr
+                                </td>
+                                <td class="px-4 py-3 whitespace-nowrap text-right text-sm">
+                                    {{ $timeDisplay }}
+                                </td>
+                                <td class="px-4 py-3 whitespace-nowrap text-right text-sm font-medium">
+                                    {{ number_format($sessionCost * $multiplier, 2) }}{{ $suffix }}
+                                </td>
+                            </tr>
+
+                            <!-- Display add-ons if any -->
+                            @foreach($sale->play_session->addOns as $addOn)
+                            <tr>
+                                <td class="px-4 py-3 whitespace-nowrap">
+                                    <div class="text-sm font-medium text-gray-900">{{ $addOn->name }}</div>
+                                    <div class="text-xs text-gray-500">Add-on</div>
+                                </td>
+                                <td class="px-4 py-3 whitespace-nowrap text-right text-sm">
+                                    {{ number_format($addOn->price * $multiplier, 2) }}{{ $suffix }}
+                                </td>
+                                <td class="px-4 py-3 whitespace-nowrap text-right text-sm">
+                                    {{ $addOn->pivot->qty }}
+                                </td>
+                                <td class="px-4 py-3 whitespace-nowrap text-right text-sm font-medium">
+                                    {{ number_format($addOn->pivot->subtotal * $multiplier, 2) }}{{ $suffix }}
+                                </td>
+                            </tr>
+                            @endforeach
+                            @else
+                            <!-- Display regular product items -->
+                            @foreach($sale->items as $item)
+                            <tr>
+                                <td class="px-4 py-3 whitespace-nowrap">
                                     <div class="text-sm font-medium text-gray-900">{{ $item->product->name }}</div>
-                                    <div class="text-xs text-gray-500">Product ID: {{ $item->product->id }}</div>
-                                </div>
-                            </td>
-                            <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-500 text-right">
-                                @if($sale->payment_method === 'LBP')
-                                {{ number_format($item->unit_price * config('play.lbp_exchange_rate', 90000)) }} L.L
-                                @else
-                                ${{ number_format($item->unit_price, 2) }}
-                                @endif
-                            </td>
-                            <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-500 text-right">
-                                {{ $item->quantity }}
-                            </td>
-                            <td class="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900 text-right">
-                                @if($sale->payment_method === 'LBP')
-                                {{ number_format($item->subtotal * config('play.lbp_exchange_rate', 90000)) }} L.L
-                                @else
-                                ${{ number_format($item->subtotal, 2) }}
-                                @endif
-                            </td>
-                        </tr>
-                        @endforeach
+                                </td>
+                                <td class="px-4 py-3 whitespace-nowrap text-right text-sm">
+                                    {{ number_format($item->unit_price * $multiplier, 2) }}{{ $suffix }}
+                                </td>
+                                <td class="px-4 py-3 whitespace-nowrap text-right text-sm">
+                                    {{ $item->quantity }}
+                                </td>
+                                <td class="px-4 py-3 whitespace-nowrap text-right text-sm font-medium">
+                                    {{ number_format($item->subtotal * $multiplier, 2) }}{{ $suffix }}
+                                </td>
+                            </tr>
+                            @endforeach
+                            @endif
                     </tbody>
                     <tfoot>
                         <tr>
                             <td colspan="3" class="px-4 py-3 text-sm font-medium text-gray-900 text-right">Total:</td>
                             <td class="px-4 py-3 whitespace-nowrap text-base font-bold text-gray-900 text-right">
-                                @if($sale->payment_method === 'LBP')
-                                {{ number_format($sale->total_amount) }} L.L
-                                @else
-                                ${{ number_format($sale->total_amount, 2) }}
-                                @endif
+                                {{ number_format($displayTotal, 2) }}{{ $suffix }}
                             </td>
                         </tr>
                     </tfoot>
@@ -120,20 +211,20 @@
         </div>
 
         <!-- Payment Details -->
-        <div class="border-t p-6 bg-gray-50">
+        <div class="border-t p-6">
             <h2 class="text-lg font-medium text-gray-800 mb-4">Payment Details</h2>
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                    <p class="text-sm text-gray-500">Payment Method:</p>
-                    <p class="font-medium">{{ $sale->payment_method }}</p>
-                </div>
-                <div>
-                    <p class="text-sm text-gray-500">Total Amount:</p>
+                    <p class="text-sm text-gray-500">Method:</p>
                     <p class="font-medium">
                         @if($sale->payment_method === 'LBP')
-                        {{ number_format($sale->total_amount) }} L.L
+                        Lebanese Pounds (L.L)
+                        @elseif($sale->payment_method === 'USD')
+                        US Dollars ($)
+                        @elseif($sale->payment_method === 'Card')
+                        Credit/Debit Card
                         @else
-                        ${{ number_format($sale->total_amount, 2) }}
+                        {{ $sale->payment_method }}
                         @endif
                     </p>
                 </div>
@@ -147,13 +238,73 @@
                         @endif
                     </p>
                 </div>
+                @php
+                // Calculate the total based on the play session (if exists) and add-ons
+                $total = 0;
+
+                // Add play hours cost
+                if ($sale->play_session_id) {
+                // Use actual hours or calculated hours
+                $hours = $sale->play_session->actual_hours;
+                if ($hours == 0 && $sale->play_session->ended_at) {
+                $startTime = $sale->play_session->started_at;
+                $endTime = $sale->play_session->ended_at;
+                $durationInMinutes = $startTime->diffInMinutes($endTime);
+                $hours = $durationInMinutes / 60;
+                }
+
+                // Calculate base cost for play hours
+                $hourlyRate = config('play.hourly_rate', 10.00);
+                $hoursSubtotal = $hours * $hourlyRate;
+
+                // Apply discount if any
+                if ($sale->play_session->discount_pct > 0) {
+                $discount = $hoursSubtotal * ($sale->play_session->discount_pct / 100);
+                $hoursSubtotal = $hoursSubtotal - $discount;
+                }
+
+                $total += $hoursSubtotal;
+
+                // Add add-ons
+                if ($sale->play_session->addOns->count() > 0) {
+                foreach ($sale->play_session->addOns as $addOn) {
+                $total += $addOn->pivot->subtotal;
+                }
+                }
+                }
+
+                // Add items directly from the sale
+                foreach ($sale->items as $item) {
+                $total += $item->price * $item->quantity;
+                }
+                @endphp
+
+                <div>
+                    <p class="text-sm text-gray-500">Total:</p>
+                    <p class="font-medium">
+                        @if($sale->payment_method === 'LBP')
+                        {{ number_format($total * config('play.lbp_exchange_rate', 90000)) }} L.L
+                        @else
+                        ${{ number_format($total, 2) }}
+                        @endif
+                    </p>
+                </div>
                 <div>
                     <p class="text-sm text-gray-500">Change:</p>
-                    <p class="font-medium text-green-600">
+                    <p class="font-medium">
+                        @php
+                        $change = $sale->amount_paid - ($sale->payment_method === 'LBP' ?
+                        ($total * config('play.lbp_exchange_rate', 90000)) : $total);
+                        @endphp
+
+                        @if($change > 0)
                         @if($sale->payment_method === 'LBP')
-                        {{ number_format($sale->change_given) }} L.L
+                        {{ number_format($change) }} L.L
                         @else
-                        ${{ number_format($sale->change_given, 2) }}
+                        ${{ number_format($change, 2) }}
+                        @endif
+                        @else
+                        -
                         @endif
                     </p>
                 </div>
@@ -187,6 +338,28 @@
 
         <!-- Play Session (if available) -->
         @if($sale->play_session_id)
+        @php
+        // Calculate actual hours if needed
+        if ($sale->play_session->actual_hours == 0 && $sale->play_session->ended_at) {
+        $startTime = $sale->play_session->started_at;
+        $endTime = $sale->play_session->ended_at;
+        $durationInMinutes = $startTime->diffInMinutes($endTime);
+        $calculatedHours = $durationInMinutes / 60;
+        $displayHours = $calculatedHours;
+
+        // Format for display
+        $hoursDisplay = floor($calculatedHours);
+        $minutesDisplay = round(($calculatedHours - $hoursDisplay) * 60);
+        $billTimeDisplay = ($hoursDisplay > 0 ? $hoursDisplay . 'h ' : '') . $minutesDisplay . 'm';
+        } else {
+        $displayHours = $sale->play_session->actual_hours ?: 0;
+
+        // Format for display
+        $hoursDisplay = floor($displayHours);
+        $minutesDisplay = round(($displayHours - $hoursDisplay) * 60);
+        $billTimeDisplay = ($hoursDisplay > 0 ? $hoursDisplay . 'h ' : '') . $minutesDisplay . 'm';
+        }
+        @endphp
         <div class="border-t p-6">
             <h2 class="text-lg font-medium text-gray-800 mb-4">Play Session Details</h2>
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -243,17 +416,7 @@
                 </div>
                 <div>
                     <p class="text-sm text-gray-500">Billed Hours:</p>
-                    <p class="font-medium">
-                        @if($sale->play_session->actual_hours > 0)
-                        {{ $sale->play_session->actual_hours }}
-                        @elseif($sale->play_session->planned_hours > 0)
-                        {{ $sale->play_session->planned_hours }} (planned)
-                        @elseif(!$sale->play_session->ended_at)
-                        In progress
-                        @else
-                        Unspecified
-                        @endif
-                    </p>
+                    <p class="font-medium">{{ $billTimeDisplay }}</p>
                 </div>
                 <div>
                     <p class="text-sm text-gray-500">Hourly Rate:</p>
@@ -274,24 +437,66 @@
                 @endif
             </div>
 
-            <!-- Add-ons for play session (if any) -->
-            @if($sale->play_session->addOns->count() > 0)
-            <div class="mt-4">
-                <h3 class="text-md font-medium text-gray-700 mb-2">Add-ons</h3>
-                <ul class="space-y-1">
-                    @foreach($sale->play_session->addOns as $addOn)
-                    <li class="text-sm">
-                        {{ $addOn->pivot->qty }}x {{ $addOn->name }} -
-                        @if($sale->payment_method === 'LBP')
-                        {{ number_format($addOn->pivot->subtotal * config('play.lbp_exchange_rate', 90000)) }} L.L
-                        @else
-                        ${{ number_format($addOn->pivot->subtotal, 2) }}
-                        @endif
-                    </li>
-                    @endforeach
-                </ul>
+            @if(!$sale->play_session->ended_at)
+            <div class="mt-4 text-center">
+                <a href="{{ route('cashier.sessions.show-end', $sale->play_session) }}"
+                    class="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" viewBox="0 0 20 20"
+                        fill="currentColor">
+                        <path fill-rule="evenodd"
+                            d="M10 18a8 8 0 100-16 8 8 0 000 16zm.75-11.25a.75.75 0 00-1.5 0v4.59L6.3 9.24a.75.75 0 00-1.1 1.02l3.25 3.5a.75.75 0 001.1 0l3.25-3.5a.75.75 0 10-1.1-1.02l-2.1 2.1V6.75z"
+                            clip-rule="evenodd" />
+                    </svg>
+                    Manage Add-ons & End Session
+                </a>
             </div>
             @endif
+        </div>
+        @endif
+
+        <!-- Add-ons (if available) -->
+        @if($sale->play_session_id && $sale->play_session->addOns->count() > 0)
+        <div class="border-t p-6">
+            <h2 class="text-lg font-medium text-gray-800 mb-4">Add-ons</h2>
+            <div class="overflow-x-auto">
+                <table class="min-w-full divide-y divide-gray-200">
+                    <thead class="bg-gray-50">
+                        <tr>
+                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                Add-on</th>
+                            <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                Price</th>
+                            <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                Qty</th>
+                            <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                Subtotal</th>
+                        </tr>
+                    </thead>
+                    <tbody class="bg-white divide-y divide-gray-200">
+                        @foreach($sale->play_session->addOns as $addOn)
+                        <tr>
+                            <td class="px-4 py-3 whitespace-nowrap">{{ $addOn->name }}</td>
+                            <td class="px-4 py-3 whitespace-nowrap text-right">
+                                @if($sale->payment_method === 'LBP')
+                                {{ number_format($addOn->price * config('play.lbp_exchange_rate', 90000)) }} L.L
+                                @else
+                                ${{ number_format($addOn->price, 2) }}
+                                @endif
+                            </td>
+                            <td class="px-4 py-3 whitespace-nowrap text-right">{{ $addOn->pivot->qty }}</td>
+                            <td class="px-4 py-3 whitespace-nowrap text-right">
+                                @if($sale->payment_method === 'LBP')
+                                {{ number_format($addOn->pivot->subtotal * config('play.lbp_exchange_rate', 90000)) }}
+                                L.L
+                                @else
+                                ${{ number_format($addOn->pivot->subtotal, 2) }}
+                                @endif
+                            </td>
+                        </tr>
+                        @endforeach
+                    </tbody>
+                </table>
+            </div>
         </div>
         @endif
 

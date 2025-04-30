@@ -43,8 +43,7 @@
                         Duration: {{ $duration->hours }}h {{ $duration->minutes }}m
                     </p>
                     <p class="text-green-700">
-                        Shift Type: {{ ucfirst($activeShift->type) }} | 
-                        Opening Amount: ${{ number_format($activeShift->opening_amount, 2) }}
+                        Shift Type: {{ ucfirst($activeShift->type) }}
                     </p>
                 </div>
             </div>

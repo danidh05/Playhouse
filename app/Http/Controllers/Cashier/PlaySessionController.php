@@ -212,11 +212,67 @@ class PlaySessionController extends Controller
                 ->with('error', 'This session has already ended');
         }
         
+        // Calculate initial duration
+        $startTime = $session->started_at;
+        $now = now();
+        
+        // Calculate the time difference ensuring proper direction
+        if ($now->lt($startTime)) {
+            // If current time is less than start time (shouldn't happen normally)
+            return redirect()->route('cashier.sessions.index')
+                ->with('error', 'Invalid session start time');
+        }
+        
+        $durationInSeconds = $now->getTimestamp() - $startTime->getTimestamp();
+        $hours = floor($durationInSeconds / 3600);
+        $minutes = floor(($durationInSeconds % 3600) / 60);
+        $seconds = $durationInSeconds % 60;
+        $initialDuration = "{$hours}h {$minutes}m {$seconds}s";
+        
+        // Calculate duration in hours for billing (rounded to 2 decimals)
+        $durationInHours = round($durationInSeconds / 3600, 2);
+        
+        // Get hourly rate from config
+        $hourlyRate = config('play.hourly_rate', 10.00);
+        
+        // Calculate time cost before discount
+        $rawTimeCost = round($durationInHours * $hourlyRate, 2);
+        
+        // Get add-ons and their total
         $addOns = AddOn::all();
         $sessionAddOns = $session->addOns()->get();
+        $addonsTotal = $sessionAddOns->sum('pivot.subtotal');
+        
+        // Apply discount only to time cost, not to add-ons (same as end method)
+        $discountPct = $session->discount_pct ?? 0;
+        $discountMultiplier = (100 - $discountPct) / 100;
+        $timeCost = round($rawTimeCost * $discountMultiplier, 2);
+        
+        // Discount amount is the difference between raw time cost and discounted time cost
+        $discountAmount = $rawTimeCost - $timeCost;
+        
+        // Subtotal for display (raw time cost + add-ons)
+        $subtotal = $rawTimeCost + $addonsTotal;
+        
+        // Total amount is discounted time cost plus add-ons
+        $totalAmount = round($timeCost + $addonsTotal, 2);
+        
         $paymentMethods = config('play.payment_methods', []);
         
-        return view('cashier.sessions.end', compact('session', 'addOns', 'sessionAddOns', 'paymentMethods'));
+        return view('cashier.sessions.end', compact(
+            'session',
+            'addOns',
+            'sessionAddOns',
+            'paymentMethods',
+            'addonsTotal',
+            'durationInHours',
+            'initialDuration',
+            'rawTimeCost',
+            'timeCost',
+            'subtotal',
+            'discountAmount',
+            'totalAmount'
+        ));
     }
 
     /**
@@ -228,23 +284,24 @@ class PlaySessionController extends Controller
             return redirect()->route('cashier.sessions.index')
                 ->with('error', 'This session has already ended');
         }
-        
+    
         // Validate payment method
         $paymentMethods = config('play.payment_methods', []);
         $request->validate([
             'payment_method' => ['required', Rule::in($paymentMethods)],
             'amount_paid' => 'required|numeric|min:0',
+            'total_amount' => 'required|numeric|min:0',
         ]);
-        
+    
         // Update add-ons if provided
         if ($request->has('add_ons')) {
             $session->addOns()->detach();
-            
+    
             foreach ($request->add_ons as $addOnId => $data) {
                 if (isset($data['qty']) && $data['qty'] > 0) {
                     $addOn = AddOn::find($addOnId);
                     $subtotal = $addOn->price * $data['qty'];
-                    
+    
                     $session->addOns()->attach($addOnId, [
                         'qty' => $data['qty'],
                         'subtotal' => $subtotal
@@ -252,65 +309,65 @@ class PlaySessionController extends Controller
                 }
             }
         }
-        
-        // Use the provided actual_hours if available, otherwise calculate
+    
+        // Calculate actual_hours
         $actualHours = $request->actual_hours;
-        
+    
         if (!$actualHours) {
             $startTime = Carbon::parse($session->started_at);
             $endTime = Carbon::now();
-            $durationHours = max(0, $endTime->diffInMinutes($startTime) / 60);  // Ensure non-negative
-            $actualHours = round($durationHours, 1);
+            $durationHours = max(0, $endTime->diffInMinutes($startTime) / 60);
+            // Don't round up to hour increments, keep actual minutes (in decimal hours)
+            $actualHours = number_format($durationHours, 2);
         } else {
-            // Ensure actual_hours is always positive
             $actualHours = abs((float)$actualHours);
         }
-        
+    
         $endTime = $request->ended_at ? Carbon::parse($request->ended_at) : Carbon::now();
-        
-        // Get hourly rate from config
+    
+        // Calculate costs
         $hourlyRate = config('play.hourly_rate', 10.00);
+        // Calculate base total from actual hours - this is the exact duration in decimal hours
         $baseTotal = $actualHours * $hourlyRate;
-        
-        // Add add-ons total
+    
+        // Get add-ons total only after refreshing the add-ons relationship
+        $session->load('addOns');
         $addOnsTotal = $session->addOns->sum(function ($addOn) {
             return $addOn->pivot->subtotal;
         });
-        
-        // Apply discount if any
+    
+        // Apply discount only to the session time cost, not to add-ons
         $discountMultiplier = (100 - ($session->discount_pct ?? 0)) / 100;
-        $totalCost = ($baseTotal + $addOnsTotal) * $discountMultiplier;
+        $timeCost = $baseTotal * $discountMultiplier;
         
-        // Convert amount if needed
+        // Total cost is discounted time cost plus full add-ons cost
+        $totalCost = round($timeCost + $addOnsTotal, 2);
+    
+        // Handle currency conversion
         $paymentMethod = $request->payment_method;
-        $amountPaid = $request->amount_paid;
-        
-        // If payment is in LBP, convert to USD equivalent for storage
-        // This is just for record-keeping, as we'll display in proper currency on the frontend
+        $lbpRate = config('play.lbp_exchange_rate', 90000);
+    
         if ($paymentMethod === 'LBP') {
-            // Use a standardized exchange rate - this should ideally come from a configuration
-            $lbpToUsdRate = 90000; // LBP to USD exchange rate
-            $amountPaidUsd = $amountPaid / $lbpToUsdRate;
+            $amountPaidUsd = round($request->amount_paid / $lbpRate, 2);
+            $totalAmountUsd = $totalCost;
         } else {
-            $amountPaidUsd = $amountPaid;
+            $amountPaidUsd = round($request->amount_paid, 2);
+            $totalAmountUsd = $totalCost;
         }
-        
-        // Update session
+    
+        // Update play session
         $session->update([
             'ended_at' => $endTime,
             'actual_hours' => $actualHours,
             'amount_paid' => $amountPaidUsd,
             'payment_method' => $paymentMethod,
-            'total_cost' => $totalCost
+            'total_cost' => $totalAmountUsd
         ]);
-        
-        // Create a sale record for the session payment
-        $activeShift = Shift::where('cashier_id', Auth::id())
-                       ->whereNull('closed_at')
-                       ->first();
-                       
+    
+        // Ensure active shift
+        $activeShift = Shift::where('cashier_id', Auth::id())->whereNull('closed_at')->first();
+    
         if (!$activeShift) {
-            // Create a new shift for the cashier if none exists
             $activeShift = Shift::create([
                 'cashier_id' => Auth::id(),
                 'date' => now()->toDateString(),
@@ -318,21 +375,23 @@ class PlaySessionController extends Controller
                 'opened_at' => now(),
             ]);
         }
-        
-        // Create a sale record
+    
+        // Create sale record directly (without sale items)
         $sale = \App\Models\Sale::create([
             'shift_id' => $activeShift->id,
             'user_id' => Auth::id(),
-            'total_amount' => $paymentMethod === 'LBP' ? $amountPaid : $amountPaidUsd,
+            'total_amount' => $totalAmountUsd,
+            'amount_paid' => $amountPaidUsd,
             'payment_method' => $paymentMethod,
             'child_id' => $session->child_id,
             'play_session_id' => $session->id
         ]);
-        
-        // Redirect to the receipt view
+    
+        // Redirect to sale detail view
         return redirect()->route('cashier.sales.show', $sale->id)
             ->with('success', 'Play session ended successfully');
     }
+    
 
     /**
      * Update add-ons for a session.
@@ -376,5 +435,20 @@ class PlaySessionController extends Controller
         
         return redirect()->route('cashier.sessions.show-end', $session)
             ->with('success', 'Add-ons updated successfully');
+    }
+
+    /**
+     * Show the add-ons management page for a session.
+     */
+    public function showAddOns(PlaySession $session)
+    {
+        if ($session->ended_at) {
+            return redirect()->route('cashier.sessions.index')
+                ->with('error', 'Cannot modify add-ons for a completed session');
+        }
+
+        $addOns = AddOn::all();
+        $sessionAddOns = $session->addOns()->get();
+        return view('cashier.sessions.addons', compact('session', 'addOns', 'sessionAddOns'));
     }
 } 
