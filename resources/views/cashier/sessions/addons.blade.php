@@ -44,7 +44,7 @@
                         <td class="px-6 py-4 whitespace-nowrap">{{ $addOn->name }}</td>
                         <td class="px-6 py-4 whitespace-nowrap">${{ number_format($addOn->price, 2) }}</td>
                         <td class="px-6 py-4 whitespace-nowrap">
-                            <input type="number" name="add_ons[{{ $addOn->id }}][qty]" min="0" class="shadow appearance-none border rounded w-20 py-2 px-3 text-gray-700" value="{{ $qty }}" data-price="{{ $addOn->price }}" onchange="updateSubtotal(this)">
+                            <input type="number" name="add_ons[{{ $addOn->id }}][qty]" min="0" step="0.01" class="shadow appearance-none border rounded w-20 py-2 px-3 text-gray-700" value="{{ $qty }}" data-price="{{ $addOn->price }}" onchange="updateSubtotal(this)">
                         </td>
                         <td class="px-6 py-4 whitespace-nowrap subtotal-display">${{ number_format($subtotal, 2) }}</td>
                     </tr>
@@ -66,7 +66,7 @@
 <script>
 // Update subtotal when quantity changes
 function updateSubtotal(input) {
-    const qty = parseInt(input.value);
+    const qty = parseFloat(input.value);
     const price = parseFloat(input.dataset.price);
     const subtotal = qty * price;
     const subtotalDisplay = input.closest('tr').querySelector('.subtotal-display');

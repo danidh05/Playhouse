@@ -300,10 +300,10 @@ class PlaySessionController extends Controller
             foreach ($request->add_ons as $addOnId => $data) {
                 if (isset($data['qty']) && $data['qty'] > 0) {
                     $addOn = AddOn::find($addOnId);
-                    $subtotal = $addOn->price * $data['qty'];
+                    $subtotal = $addOn->price * (float)$data['qty'];
     
                     $session->addOns()->attach($addOnId, [
-                        'qty' => $data['qty'],
+                        'qty' => (float)$data['qty'],
                         'subtotal' => $subtotal
                     ]);
                 }
@@ -364,22 +364,25 @@ class PlaySessionController extends Controller
             'total_cost' => $totalAmountUsd
         ]);
     
-        // Ensure active shift
-        $activeShift = Shift::where('cashier_id', Auth::id())->whereNull('closed_at')->first();
-    
-        if (!$activeShift) {
-            $activeShift = Shift::create([
+        // Get the current cashier's active shift
+        $currentCashierShift = Shift::where('cashier_id', Auth::id())->whereNull('closed_at')->first();
+        
+        // If there's no active shift for the current cashier, create one
+        if (!$currentCashierShift) {
+            $currentCashierShift = Shift::create([
                 'cashier_id' => Auth::id(),
                 'date' => now()->toDateString(),
                 'type' => (now()->hour < 12) ? 'morning' : 'afternoon',
                 'opened_at' => now(),
             ]);
         }
-    
-        // Create sale record directly (without sale items)
+        
+        // Create sale record
+        // Important: The sale is associated with the current cashier's shift,
+        // but the play session remains with its original shift
         $sale = \App\Models\Sale::create([
-            'shift_id' => $activeShift->id,
-            'user_id' => Auth::id(),
+            'shift_id' => $currentCashierShift->id, // Associate with current cashier's shift
+            'user_id' => Auth::id(), // Current user
             'total_amount' => $totalAmountUsd,
             'amount_paid' => $amountPaidUsd,
             'payment_method' => $paymentMethod,
@@ -414,7 +417,7 @@ class PlaySessionController extends Controller
                 if ($addOn) {
                     // Check if we received a qty in the data or if it's just an ID
                     if (is_array($data) && isset($data['qty'])) {
-                        $qty = (int)$data['qty'];
+                        $qty = (float)$data['qty'];
                         $subtotal = $addOn->price * $qty;
                     } else {
                         $qty = 1; // Default quantity

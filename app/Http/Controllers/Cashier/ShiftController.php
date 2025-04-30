@@ -101,17 +101,14 @@ class ShiftController extends Controller
                 ->with('error', 'You cannot close this shift.');
         }
         
-        // Check for active play sessions
+        // Check for active play sessions, but only to display a warning
         $activeSessions = PlaySession::where('shift_id', $shift->id)
             ->whereNull('ended_at')
-            ->count();
+            ->get();
         
-        if ($activeSessions > 0) {
-            return redirect()->route('cashier.dashboard')
-                ->with('error', 'Cannot close shift with active play sessions.');
-        }
+        $activeSessionsCount = $activeSessions->count();
         
-        return view('cashier.shifts.close', compact('shift'));
+        return view('cashier.shifts.close', compact('shift', 'activeSessions', 'activeSessionsCount'));
     }
     
     /**
@@ -125,22 +122,13 @@ class ShiftController extends Controller
                 ->with('error', 'You cannot close this shift.');
         }
         
-        // Check for active play sessions
-        $activeSessions = PlaySession::where('shift_id', $shift->id)
-            ->whereNull('ended_at')
-            ->count();
-        
-        if ($activeSessions > 0) {
-            return redirect()->route('cashier.dashboard')
-                ->withErrors(['active_sessions' => 'Cannot close shift with active play sessions.'])
-                ->with('error', 'Cannot close shift with active play sessions.');
-        }
-        
         $request->validate([
             'closing_amount' => 'required|numeric|min:0',
             'notes' => 'nullable|string',
         ]);
         
+        // Close the shift even if there are active play sessions
+        // The play sessions will remain associated with this shift
         $shift->update([
             'closed_at' => now(),
             'closing_amount' => $request->closing_amount,
@@ -148,7 +136,7 @@ class ShiftController extends Controller
         ]);
         
         return redirect()->route('cashier.dashboard')
-            ->with('success', 'Shift closed successfully.');
+            ->with('success', 'Shift closed successfully. Any active play sessions will remain associated with this shift when they end.');
     }
     
     /**

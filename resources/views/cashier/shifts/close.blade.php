@@ -22,6 +22,33 @@
             </div>
             @endif
 
+            @if(isset($activeSessionsCount) && $activeSessionsCount > 0)
+            <div class="bg-yellow-50 border-l-4 border-yellow-500 text-yellow-700 p-4 mb-6">
+                <div class="flex">
+                    <div class="flex-shrink-0">
+                        <svg class="h-5 w-5 text-yellow-500" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                            <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd" />
+                        </svg>
+                    </div>
+                    <div class="ml-3">
+                        <p class="text-sm font-medium">
+                            Warning: You have {{ $activeSessionsCount }} active play {{ $activeSessionsCount == 1 ? 'session' : 'sessions' }}.
+                        </p>
+                        <p class="text-sm mt-1">
+                            If you close your shift now, these sessions will still be associated with this shift when they end, even if another cashier processes them.
+                        </p>
+                        @if($activeSessionsCount <= 3)
+                        <ul class="mt-2 list-disc pl-5 text-xs">
+                            @foreach($activeSessions as $session)
+                            <li>{{ $session->child->name }} (started at {{ $session->started_at->format('H:i') }})</li>
+                            @endforeach
+                        </ul>
+                        @endif
+                    </div>
+                </div>
+            </div>
+            @endif
+
             <div class="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
                 <h2 class="text-lg font-semibold text-blue-800 flex items-center mb-2">
                     <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">

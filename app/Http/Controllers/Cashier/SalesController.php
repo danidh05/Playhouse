@@ -134,6 +134,7 @@ class SalesController extends Controller
                 
                 // Convert to USD for storage
                 $totalAmount = round($totalAmountLBP / $lbpRate, 2);
+                // Convert amount paid from LBP to USD
                 $amountPaid = round($amountPaidLBP / $lbpRate, 2);
             } else {
                 // For USD payments
@@ -154,6 +155,12 @@ class SalesController extends Controller
             $sale->total_amount = $totalAmount;
             $sale->amount_paid = $amountPaid;
             $sale->payment_method = $paymentMethod;
+            
+            // Store LBP amount in metadata if needed
+            if ($paymentMethod === 'LBP') {
+                $sale->metadata = json_encode(['amount_paid_lbp' => $amountPaidLBP]);
+            }
+            
             $sale->child_id = $childId;
             $sale->play_session_id = $playSessionId;
             $sale->save();
