@@ -18,8 +18,7 @@
                     <p class="text-sm text-blue-700">
                         Child: <strong>{{ $session->child->name }}</strong><br>
                         Started: <strong>{{ $session->started_at->format('M d, Y H:i') }}</strong><br>
-                        Duration: <strong><span id="duration-counter"
-                                data-start="{{ $session->started_at->timestamp }}">{{ $initialDuration }}</span></strong><br>
+                        Duration: <strong><span id="duration-counter">{{ $initialDuration }}</span></strong><br>
                         @if($session->discount_pct > 0)
                         Discount: <strong>{{ $session->discount_pct }}%</strong>
                         @endif
@@ -109,6 +108,23 @@
                     </span>
                 </div>
 
+                @if(isset($pendingSales) && count($pendingSales) > 0)
+                <div class="flex justify-between">
+                    <div class="text-gray-600">
+                        <span>Products:</span>
+                        <span class="text-xs ml-2">({{ count($pendingSales) }} {{ Str::plural('sale', count($pendingSales)) }})</span>
+                    </div>
+                    <span class="font-medium">
+                        @if(request('payment_method') === 'LBP')
+                        {{ number_format(floor(($pendingSalesTotal * config('play.lbp_exchange_rate', 90000))/1000)*1000) }}
+                        L.L
+                        @else
+                        ${{ number_format($pendingSalesTotal, 2) }}
+                        @endif
+                    </span>
+                </div>
+                @endif
+
                 <div class="flex justify-between border-t border-gray-300 pt-2 mt-2">
                     <span class="text-gray-800 font-bold">Total:</span>
                     <span class="font-bold text-lg" id="calculated-total">
@@ -122,6 +138,69 @@
                 </div>
             </div>
         </div>
+
+        @if(isset($pendingSales) && count($pendingSales) > 0)
+        <div class="bg-yellow-50 p-4 rounded-lg mb-6 border border-yellow-200">
+            <div class="flex justify-between items-center mb-2 cursor-pointer" id="pending-sales-toggle">
+                <h3 class="text-lg font-semibold text-yellow-800">Pending Product Sales</h3>
+                <button type="button" class="text-yellow-600 hover:text-yellow-800">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                    </svg>
+                </button>
+            </div>
+            
+            <div id="pending-sales-details" class="hidden mt-2">
+                @foreach($pendingSales as $sale)
+                    <div class="border-b border-yellow-200 pb-2 mb-2">
+                        <div class="flex justify-between text-sm">
+                            <span class="font-medium">Sale #{{ $sale->id }}</span>
+                            <span class="text-gray-600">{{ $sale->created_at->format('M d, h:i A') }}</span>
+                        </div>
+                        
+                        <div class="mt-1">
+                            <table class="w-full text-sm">
+                                <thead>
+                                    <tr class="text-left text-xs text-yellow-700">
+                                        <th class="py-1">Product</th>
+                                        <th class="py-1">Qty</th>
+                                        <th class="py-1 text-right">Price</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach($sale->items as $item)
+                                    <tr>
+                                        <td class="py-1">{{ $item->product->name }}</td>
+                                        <td class="py-1">{{ $item->quantity }}</td>
+                                        <td class="py-1 text-right">
+                                            @if(request('payment_method') === 'LBP')
+                                            {{ number_format($item->subtotal * config('play.lbp_exchange_rate', 90000)) }} L.L
+                                            @else
+                                            ${{ number_format($item->subtotal, 2) }}
+                                            @endif
+                                        </td>
+                                    </tr>
+                                    @endforeach
+                                </tbody>
+                                <tfoot>
+                                    <tr class="border-t border-yellow-200">
+                                        <td colspan="2" class="py-1 text-right font-medium">Subtotal:</td>
+                                        <td class="py-1 text-right font-medium">
+                                            @if(request('payment_method') === 'LBP')
+                                            {{ number_format($sale->total_amount * config('play.lbp_exchange_rate', 90000)) }} L.L
+                                            @else
+                                            ${{ number_format($sale->total_amount, 2) }}
+                                            @endif
+                                        </td>
+                                    </tr>
+                                </tfoot>
+                            </table>
+                        </div>
+                    </div>
+                @endforeach
+            </div>
+        </div>
+        @endif
 
         <form action="{{ route('cashier.sessions.end', $session) }}" method="POST" class="mt-8">
             @csrf
@@ -169,38 +248,8 @@
 
     @section('scripts')
     <script>
-let updateInterval;
-
-// Duration counter
+// Duration counter is now fixed at page load time by the server
 document.addEventListener('DOMContentLoaded', function() {
-            // Duration counter
-            const durationElement = document.getElementById('duration-counter');
-            const startTime = parseInt(durationElement.dataset.start);
-
-            function updateDuration() {
-                const currentTime = Math.floor(Date.now() / 1000);
-                const durationInSeconds = Math.max(0, currentTime - startTime);
-
-                // Calculate hours, minutes, seconds
-                const hours = Math.floor(durationInSeconds / 3600);
-                const minutes = Math.floor((durationInSeconds % 3600) / 60);
-                const seconds = durationInSeconds % 60;
-
-                // Format with leading zeros
-                const formattedHours = hours.toString();
-                const formattedMinutes = minutes.toString().padStart(2, '0');
-                const formattedSeconds = seconds.toString().padStart(2, '0');
-
-                // Update duration display
-                durationElement.textContent = `${formattedHours}h ${formattedMinutes}m ${formattedSeconds}s`;
-            }
-
-            // Run initial update
-            updateDuration();
-
-            // Update every second
-            updateInterval = setInterval(updateDuration, 1000);
-
             // "Use calculated total" button
             document.getElementById('use-total-button').addEventListener('click', function() {
                     const paymentMethod = "{{ request('payment_method') }}";
@@ -226,12 +275,27 @@ document.addEventListener('DOMContentLoaded', function() {
                         }
                     });
             });
-
-        // Clean up interval when leaving the page
-        window.addEventListener('beforeunload', function() {
-            if (updateInterval) {
-                clearInterval(updateInterval);
+    </script>
+    
+    @if(isset($pendingSales) && count($pendingSales) > 0)
+    <script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const toggle = document.getElementById('pending-sales-toggle');
+        const details = document.getElementById('pending-sales-details');
+        const toggleIcon = toggle.querySelector('svg');
+        
+        toggle.addEventListener('click', function() {
+            if (details.classList.contains('hidden')) {
+                details.classList.remove('hidden');
+                toggleIcon.setAttribute('viewBox', '0 0 24 24');
+                toggleIcon.innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 15l7-7 7 7" />';
+            } else {
+                details.classList.add('hidden');
+                toggleIcon.setAttribute('viewBox', '0 0 24 24');
+                toggleIcon.innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />';
             }
         });
+    });
     </script>
+    @endif
     @endsection

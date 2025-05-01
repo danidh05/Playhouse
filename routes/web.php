@@ -96,6 +96,8 @@ Route::prefix('cashier')->name('cashier.')->middleware(['auth', 'role:cashier'])
         Route::put('/sessions/{session}/end', [PlaySessionController::class, 'end'])->name('sessions.end');
         Route::patch('/sessions/{session}/add-ons', [PlaySessionController::class, 'updateAddOns'])->name('sessions.update-addons');
         Route::get('/sessions/{session}/add-ons', [PlaySessionController::class, 'showAddOns'])->name('sessions.show-addons');
+        Route::get('/sessions/{session}/add-products', [PlaySessionController::class, 'showAddProducts'])->name('sessions.add-products');
+        Route::post('/sessions/{session}/add-products', [PlaySessionController::class, 'storeProducts'])->name('sessions.store-products');
         
         // Sales routes
         Route::get('/sales', [SalesController::class, 'index'])->name('sales.index');

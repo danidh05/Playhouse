@@ -24,6 +24,8 @@ class Sale extends Model
         'payment_method',
         'child_id',
         'play_session_id',
+        'status',
+        'parent_sale_id',
     ];
 
     /**
@@ -83,6 +85,22 @@ class Sale extends Model
     public function play_session(): BelongsTo
     {
         return $this->belongsTo(PlaySession::class);
+    }
+    
+    /**
+     * Get the parent sale if this is a child sale.
+     */
+    public function parent_sale(): BelongsTo
+    {
+        return $this->belongsTo(Sale::class, 'parent_sale_id');
+    }
+    
+    /**
+     * Get the child sales if this is a parent sale.
+     */
+    public function child_sales(): HasMany
+    {
+        return $this->hasMany(Sale::class, 'parent_sale_id');
     }
     
     /**

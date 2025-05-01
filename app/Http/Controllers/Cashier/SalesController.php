@@ -156,11 +156,6 @@ class SalesController extends Controller
             $sale->amount_paid = $amountPaid;
             $sale->payment_method = $paymentMethod;
             
-            // Store LBP amount in metadata if needed
-            if ($paymentMethod === 'LBP') {
-                $sale->metadata = json_encode(['amount_paid_lbp' => $amountPaidLBP]);
-            }
-            
             $sale->child_id = $childId;
             $sale->play_session_id = $playSessionId;
             $sale->save();
@@ -205,7 +200,9 @@ class SalesController extends Controller
           'user',
           'shift',
           'play_session',
-          'play_session.addOns'
+          'play_session.addOns',
+          'child_sales',
+          'parent_sale'
         ]);
         
         // If there's a play session with zero actual_hours but it has ended, calculate the hours

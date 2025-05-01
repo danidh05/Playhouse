@@ -121,6 +121,10 @@
                                     class="ml-2 text-purple-700 bg-purple-100 hover:bg-purple-200 py-2 px-4 rounded-md border border-purple-300">
                                     Add-ons
                                 </a>
+                                <a href="{{ route('cashier.sessions.add-products', $session->id) }}"
+                                    class="ml-2 text-blue-700 bg-blue-100 hover:bg-blue-200 py-2 px-4 rounded-md border border-blue-300">
+                                    Add Products
+                                </a>
                             </td>
                         </tr>
                         @endforeach

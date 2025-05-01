@@ -32,6 +32,24 @@
     </div>
     @endif
 
+    @if(isset($isFreeSession) && $isFreeSession)
+    <div class="bg-indigo-50 border-l-4 border-indigo-500 p-4 mb-6">
+        <div class="flex">
+            <div class="flex-shrink-0">
+                <svg class="h-5 w-5 text-indigo-500" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                    <path fill-rule="evenodd" d="M5 2a2 2 0 00-2 2v14l3.5-2 3.5 2 3.5-2 3.5 2V4a2 2 0 00-2-2H5zm2.5 3a1.5 1.5 0 100 3 1.5 1.5 0 000-3zm7 0a1.5 1.5 0 10-3 0 1.5 1.5 0 003 0zm-7 7a1.5 1.5 0 100 3 1.5 1.5 0 000-3zm7 0a1.5 1.5 0 10-3 0 1.5 1.5 0 003 0z" clip-rule="evenodd" />
+                </svg>
+            </div>
+            <div class="ml-3">
+                <p class="text-sm font-medium text-indigo-800">🎉 Loyalty Reward: This session is FREE!</p>
+                <p class="text-sm text-indigo-700 mt-1">
+                    A 1-hour free credit will be automatically applied to this session.
+                </p>
+            </div>
+        </div>
+    </div>
+    @endif
+
     <form action="{{ route('cashier.sessions.store') }}" method="POST">
         @csrf
 
@@ -73,25 +91,35 @@
         <div class="mb-4">
             <label for="planned_hours" class="block text-gray-700 text-sm font-bold mb-2">Planned Hours</label>
             <input type="number" name="planned_hours" id="planned_hours" min="0.1" max="24" step="0.1"
-                class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline @error('planned_hours') border-red-500 @enderror"
-                value="{{ old('planned_hours', 1) }}" required>
+                class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline @error('planned_hours') border-red-500 @enderror @if(isset($isFreeSession) && $isFreeSession) bg-gray-100 @endif"
+                value="{{ old('planned_hours', (isset($isFreeSession) && $isFreeSession) ? 1 : 1) }}" 
+                {{ (isset($isFreeSession) && $isFreeSession) ? 'readonly' : 'required' }}>
             @error('planned_hours')
             <p class="text-red-500 text-xs mt-1">{{ $message }}</p>
             @enderror
             <p class="text-sm text-gray-500 mt-1">Current hourly rate: ${{ number_format($hourlyRate, 2) }}</p>
-            <p class="text-sm text-gray-500 mt-1">For testing: You can set as low as 0.1 hours (6 minutes)</p>
+            @if(isset($isFreeSession) && $isFreeSession)
+                <p class="text-sm text-indigo-600 mt-1">This free session is fixed at 1 hour.</p>
+            @else
+                <p class="text-sm text-gray-500 mt-1">For testing: You can set as low as 0.1 hours (6 minutes)</p>
+            @endif
         </div>
 
         <div class="mb-4">
             <label for="discount_pct" class="block text-gray-700 text-sm font-bold mb-2">Discount Percentage
-                (Optional)</label>
+                {{ (isset($isFreeSession) && $isFreeSession) ? '' : '(Optional)' }}</label>
             <input type="number" name="discount_pct" id="discount_pct" min="0" max="100" step="1"
-                class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline @error('discount_pct') border-red-500 @enderror"
-                value="{{ old('discount_pct', 0) }}">
+                class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline @error('discount_pct') border-red-500 @enderror @if(isset($isFreeSession) && $isFreeSession) bg-gray-100 @endif"
+                value="{{ old('discount_pct', (isset($isFreeSession) && $isFreeSession) ? 100 : 0) }}"
+                {{ (isset($isFreeSession) && $isFreeSession) ? 'readonly' : '' }}>
             @error('discount_pct')
             <p class="text-red-500 text-xs mt-1">{{ $message }}</p>
             @enderror
-            <p class="text-sm text-gray-500 mt-1">Enter a number between 0-100</p>
+            @if(isset($isFreeSession) && $isFreeSession)
+                <p class="text-sm text-indigo-600 mt-1">100% discount applied for your loyalty reward.</p>
+            @else
+                <p class="text-sm text-gray-500 mt-1">Enter a number between 0-100</p>
+            @endif
         </div>
 
         <div class="mb-4">

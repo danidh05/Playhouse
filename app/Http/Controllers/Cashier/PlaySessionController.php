@@ -81,7 +81,20 @@ class PlaySessionController extends Controller
         
         $hourlyRate = config('play.hourly_rate', 10.00);
         
-        return view('cashier.sessions.start', compact('child', 'children', 'activeShift', 'hourlyRate'));
+        // Check if this would be a free session (for a specific child)
+        $isFreeSession = false;
+        if ($child) {
+            // Count completed paid sessions for this child
+            $paidSessionsCount = PlaySession::where('child_id', $child->id)
+                ->whereNotNull('ended_at')
+                ->where('discount_pct', '<', 100) // Exclude free sessions
+                ->count();
+            
+            // Every 6th session is free (after 5, 10, 15, etc. paid sessions)
+            $isFreeSession = ($paidSessionsCount > 0) && ($paidSessionsCount % 5 === 0);
+        }
+        
+        return view('cashier.sessions.start', compact('child', 'children', 'activeShift', 'hourlyRate', 'isFreeSession'));
     }
 
     /**
@@ -108,7 +121,16 @@ class PlaySessionController extends Controller
         $hourlyRate = config('play.hourly_rate', 10.00);
         $children = Child::orderBy('name')->get();
         
-        return view('cashier.sessions.start', compact('child', 'children', 'activeShift', 'hourlyRate'));
+        // Check if this would be a free session
+        $paidSessionsCount = PlaySession::where('child_id', $child->id)
+            ->whereNotNull('ended_at')
+            ->where('discount_pct', '<', 100) // Exclude free sessions
+            ->count();
+        
+        // Every 6th session is free (after 5, 10, 15, etc. paid sessions)
+        $isFreeSession = ($paidSessionsCount > 0) && ($paidSessionsCount % 5 === 0);
+        
+        return view('cashier.sessions.start', compact('child', 'children', 'activeShift', 'hourlyRate', 'isFreeSession'));
     }
 
     /**
@@ -117,6 +139,22 @@ class PlaySessionController extends Controller
     public function store(PlaySessionRequest $request)
     {
         $validated = $request->validated();
+        
+        // Check if this should be a free session
+        $childId = $validated['child_id'];
+        $paidSessionsCount = PlaySession::where('child_id', $childId)
+            ->whereNotNull('ended_at')
+            ->where('discount_pct', '<', 100) // Exclude free sessions
+            ->count();
+        
+        // Every 6th session is free (after 5, 10, 15, etc. paid sessions)
+        $isFreeSession = ($paidSessionsCount > 0) && ($paidSessionsCount % 5 === 0);
+        
+        // If this is a free session, override planned_hours and discount_pct
+        if ($isFreeSession) {
+            $validated['planned_hours'] = 1;
+            $validated['discount_pct'] = 100;
+        }
         
         // If start_time is present, set it as started_at
         if (isset($validated['start_time'])) {
@@ -163,8 +201,13 @@ class PlaySessionController extends Controller
         $playSession->user_id = Auth::id();
         $playSession->save();
         
+        $successMessage = 'Play session started successfully';
+        if ($isFreeSession) {
+            $successMessage .= ' (Free loyalty session applied: 1 hour free)';
+        }
+        
         return redirect()->route('cashier.sessions.index')
-            ->with('success', 'Play session started successfully');
+            ->with('success', $successMessage);
     }
     
     /**
@@ -205,40 +248,50 @@ class PlaySessionController extends Controller
     /**
      * Display the end session form.
      */
-    public function showEnd(PlaySession $session)
+    public function showEnd(PlaySession $session, Request $request)
     {
         if ($session->ended_at) {
             return redirect()->route('cashier.sessions.index')
                 ->with('error', 'This session has already ended');
         }
-        
-        // Calculate initial duration
+
+        // Always calculate the current duration at the time this page is loaded
         $startTime = $session->started_at;
         $now = now();
-        
+
         // Calculate the time difference ensuring proper direction
         if ($now->lt($startTime)) {
             // If current time is less than start time (shouldn't happen normally)
             return redirect()->route('cashier.sessions.index')
                 ->with('error', 'Invalid session start time');
         }
-        
+
+        // Calculate current duration
         $durationInSeconds = $now->getTimestamp() - $startTime->getTimestamp();
         $hours = floor($durationInSeconds / 3600);
         $minutes = floor(($durationInSeconds % 3600) / 60);
         $seconds = $durationInSeconds % 60;
         $initialDuration = "{$hours}h {$minutes}m {$seconds}s";
-        
+
         // Calculate duration in hours for billing (rounded to 2 decimals)
         $durationInHours = round($durationInSeconds / 3600, 2);
-        
+
         // Get hourly rate from config
         $hourlyRate = config('play.hourly_rate', 10.00);
-        
+
         // Calculate time cost before discount
         $rawTimeCost = round($durationInHours * $hourlyRate, 2);
-        
-        // Get add-ons and their total
+
+        // Store calculated values in session for later use in end method
+        $sessionKey = "play_session_{$session->id}_end_data";
+        $request->session()->put($sessionKey, [
+            'initialDuration' => $initialDuration,
+            'durationInHours' => $durationInHours,
+            'rawTimeCost' => $rawTimeCost,
+            'endTime' => $now
+        ]);
+
+        // Get add-ons and their total - this can change between requests
         $addOns = AddOn::all();
         $sessionAddOns = $session->addOns()->get();
         $addonsTotal = $sessionAddOns->sum('pivot.subtotal');
@@ -251,11 +304,20 @@ class PlaySessionController extends Controller
         // Discount amount is the difference between raw time cost and discounted time cost
         $discountAmount = $rawTimeCost - $timeCost;
         
-        // Subtotal for display (raw time cost + add-ons)
-        $subtotal = $rawTimeCost + $addonsTotal;
+        // Get pending product sales
+        $pendingSales = \App\Models\Sale::where('play_session_id', $session->id)
+            ->where('status', 'pending')
+            ->with('items.product')
+            ->latest()
+            ->get();
+            
+        $pendingSalesTotal = $pendingSales->sum('total_amount');
         
-        // Total amount is discounted time cost plus add-ons
-        $totalAmount = round($timeCost + $addonsTotal, 2);
+        // Subtotal for display (raw time cost + add-ons)
+        $subtotal = $rawTimeCost + $addonsTotal + $pendingSalesTotal;
+        
+        // Total amount is discounted time cost plus add-ons plus pending sales
+        $totalAmount = round($timeCost + $addonsTotal + $pendingSalesTotal, 2);
         
         $paymentMethods = config('play.payment_methods', []);
         
@@ -271,7 +333,9 @@ class PlaySessionController extends Controller
             'timeCost',
             'subtotal',
             'discountAmount',
-            'totalAmount'
+            'totalAmount',
+            'pendingSales',
+            'pendingSalesTotal'
         ));
     }
 
@@ -310,22 +374,23 @@ class PlaySessionController extends Controller
             }
         }
     
-        // Calculate actual_hours
-        $actualHours = $request->actual_hours;
-    
-        if (!$actualHours) {
+        // Get the saved end time data from session
+        $sessionKey = "play_session_{$session->id}_end_data";
+        $endData = $request->session()->get($sessionKey);
+        
+        if ($endData && isset($endData['durationInHours'])) {
+            // Use the duration stored in the session
+            $actualHours = $endData['durationInHours'];
+            $endTime = $endData['endTime'];
+        } else {
+            // Fallback to calculating it now
             $startTime = Carbon::parse($session->started_at);
             $endTime = Carbon::now();
             $durationHours = max(0, $endTime->diffInMinutes($startTime) / 60);
-            // Don't round up to hour increments, keep actual minutes (in decimal hours)
             $actualHours = number_format($durationHours, 2);
-        } else {
-            $actualHours = abs((float)$actualHours);
         }
-    
-        $endTime = $request->ended_at ? Carbon::parse($request->ended_at) : Carbon::now();
-    
-        // Calculate costs
+        
+        // Get hourly rate from config
         $hourlyRate = config('play.hourly_rate', 10.00);
         // Calculate base total from actual hours - this is the exact duration in decimal hours
         $baseTotal = $actualHours * $hourlyRate;
@@ -340,8 +405,15 @@ class PlaySessionController extends Controller
         $discountMultiplier = (100 - ($session->discount_pct ?? 0)) / 100;
         $timeCost = $baseTotal * $discountMultiplier;
         
-        // Total cost is discounted time cost plus full add-ons cost
-        $totalCost = round($timeCost + $addOnsTotal, 2);
+        // Get pending product sales
+        $pendingSales = \App\Models\Sale::where('play_session_id', $session->id)
+            ->where('status', 'pending')
+            ->get();
+            
+        $pendingSalesTotal = $pendingSales->sum('total_amount');
+        
+        // Total cost is discounted time cost plus full add-ons cost plus pending sales
+        $totalCost = round($timeCost + $addOnsTotal + $pendingSalesTotal, 2);
     
         // Handle currency conversion
         $paymentMethod = $request->payment_method;
@@ -363,6 +435,9 @@ class PlaySessionController extends Controller
             'payment_method' => $paymentMethod,
             'total_cost' => $totalAmountUsd
         ]);
+    
+        // Clean up the session data
+        $request->session()->forget($sessionKey);
     
         // Get the current cashier's active shift
         $currentCashierShift = Shift::where('cashier_id', Auth::id())->whereNull('closed_at')->first();
@@ -387,8 +462,18 @@ class PlaySessionController extends Controller
             'amount_paid' => $amountPaidUsd,
             'payment_method' => $paymentMethod,
             'child_id' => $session->child_id,
-            'play_session_id' => $session->id
+            'play_session_id' => $session->id,
+            'status' => 'completed'
         ]);
+        
+        // Update pending sales status to completed and link to main sale
+        foreach($pendingSales as $pendingSale) {
+            $pendingSale->update([
+                'status' => 'completed',
+                'payment_method' => $paymentMethod,
+                'parent_sale_id' => $sale->id
+            ]);
+        }
     
         // Redirect to sale detail view
         return redirect()->route('cashier.sales.show', $sale->id)
@@ -436,7 +521,7 @@ class PlaySessionController extends Controller
             }
         }
         
-        return redirect()->route('cashier.sessions.show-end', $session)
+        return redirect()->route('cashier.sessions.show', $session)
             ->with('success', 'Add-ons updated successfully');
     }
 
@@ -453,5 +538,113 @@ class PlaySessionController extends Controller
         $addOns = AddOn::all();
         $sessionAddOns = $session->addOns()->get();
         return view('cashier.sessions.addons', compact('session', 'addOns', 'sessionAddOns'));
+    }
+    
+    /**
+     * Show the form to add products to a session.
+     */
+    public function showAddProducts(PlaySession $session)
+    {
+        if ($session->ended_at) {
+            return redirect()->route('cashier.sessions.index')
+                ->with('error', 'Cannot add products to a completed session');
+        }
+        
+        // Get all products with stock
+        $products = \App\Models\Product::where('stock_qty', '>', 0)->get();
+        
+        // Get existing pending sales for this session
+        $pendingSales = \App\Models\Sale::where('play_session_id', $session->id)
+            ->where('status', 'pending')
+            ->with('items.product')
+            ->latest()
+            ->get();
+        
+        return view('cashier.sessions.add-products', compact('session', 'products', 'pendingSales'));
+    }
+    
+    /**
+     * Store products as a pending sale for a session.
+     */
+    public function storeProducts(Request $request, PlaySession $session)
+    {
+        if ($session->ended_at) {
+            return redirect()->route('cashier.sessions.index')
+                ->with('error', 'Cannot add products to a completed session');
+        }
+        
+        // Validate request
+        $request->validate([
+            'products' => 'required|json',
+        ]);
+        
+        // Decode the products from the JSON string
+        $productsData = json_decode($request->products, true);
+        
+        if (empty($productsData)) {
+            return redirect()->back()->with('error', 'No products selected.');
+        }
+        
+        // Find active shift
+        $shift = \App\Models\Shift::where('cashier_id', Auth::id())
+            ->whereNull('closed_at')
+            ->first();
+        
+        if (!$shift) {
+            // Create a new shift for the cashier if none exists
+            $shift = \App\Models\Shift::create([
+                'cashier_id' => Auth::id(),
+                'opened_at' => now(),
+            ]);
+        }
+        
+        // Calculate total amount
+        $totalAmount = 0;
+        foreach ($productsData as $productData) {
+            $product = \App\Models\Product::find($productData['id']);
+            if ($product) {
+                $totalAmount += $product->price * $productData['quantity'];
+            }
+        }
+        
+        // Create the sale with pending status
+        $sale = new \App\Models\Sale();
+        $sale->shift_id = $shift->id;
+        $sale->user_id = Auth::id();
+        $sale->total_amount = round($totalAmount, 2);
+        $sale->amount_paid = 0; // Will be paid when session ends
+        $sale->payment_method = 'pending'; // Will be set when session ends
+        $sale->child_id = $session->child_id;
+        $sale->play_session_id = $session->id;
+        $sale->status = 'pending';
+        $sale->save();
+        
+        // Process each product
+        foreach ($productsData as $productData) {
+            $product = \App\Models\Product::find($productData['id']);
+            
+            if (!$product || $product->stock_qty < $productData['quantity']) {
+                // If we don't have enough stock, delete the sale and redirect back
+                $sale->delete();
+                return redirect()->back()->with('error', "Not enough stock available for {$product->name}");
+            }
+            
+            // Create the sale item
+            $saleItem = new \App\Models\SaleItem();
+            $saleItem->sale_id = $sale->id;
+            $saleItem->product_id = $product->id;
+            $saleItem->quantity = $productData['quantity'];
+            $saleItem->unit_price = $product->price;
+            $saleItem->subtotal = $product->price * $productData['quantity'];
+            $saleItem->save();
+            
+            // Update the stock quantity
+            $product->update([
+                'stock_qty' => $product->stock_qty - $productData['quantity']
+            ]);
+        }
+        
+        return redirect()->route('cashier.sessions.show', $session)
+            ->with('success', 'Products added to the session successfully. They will be included in the final bill.');
     }
 } 

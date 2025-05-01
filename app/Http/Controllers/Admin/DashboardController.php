@@ -152,6 +152,41 @@ class DashboardController extends Controller
             $hoursCounts[] = $popularHours[$hour] ?? 0;
         }
         
+        // Get average play session durations for the last 30 days by day
+        $sessionDurations = [];
+        $sessionCounts = [];
+        
+        for ($i = 0; $i < 30; $i++) {
+            $date = Carbon::now()->subDays($i)->format('Y-m-d');
+            
+            // Get all completed sessions for this day
+            $daySessions = PlaySession::whereDate('ended_at', $date)
+                            ->whereNotNull('ended_at')
+                            ->get();
+                            
+            $totalDuration = 0;
+            $count = count($daySessions);
+            
+            foreach ($daySessions as $session) {
+                $start = Carbon::parse($session->started_at);
+                $end = Carbon::parse($session->ended_at);
+                $durationInHours = $start->diffInMinutes($end) / 60;
+                $totalDuration += $durationInHours;
+            }
+            
+            $avgDuration = $count > 0 ? round($totalDuration / $count, 2) : 0;
+            
+            // Add in reverse order (most recent last)
+            array_unshift($sessionDurations, $avgDuration);
+            array_unshift($sessionCounts, $count);
+        }
+        
+        // Last 30 days labels for duration chart
+        $durationLabels = [];
+        for ($i = 29; $i >= 0; $i--) {
+            $durationLabels[] = Carbon::now()->subDays($i)->format('M d');
+        }
+        
         return view('admin.visualizations', compact(
             'labels', 
             'dailyRevenue', 
@@ -160,7 +195,10 @@ class DashboardController extends Controller
             'lastSixMonths',
             'expensesByCategory',
             'hoursLabels',
-            'hoursCounts'
+            'hoursCounts',
+            'durationLabels',
+            'sessionDurations',
+            'sessionCounts'
         ));
     }
 }

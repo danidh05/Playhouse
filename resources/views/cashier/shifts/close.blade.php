@@ -66,12 +66,78 @@
                     <p><span class="font-medium">Duration:</span> {{ $duration->hours }}h {{ $duration->minutes }}m</p>
                 </div>
             </div>
+            
+            <!-- Financial Summary Section -->
+            <div class="bg-green-50 border border-green-200 rounded-lg p-4 mb-6">
+                <h2 class="text-lg font-semibold text-green-800 flex items-center mb-3">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    Revenue Summary
+                </h2>
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <h3 class="text-sm font-medium text-green-700 mb-2">Transactions</h3>
+                        <ul class="space-y-1 text-sm">
+                            <li class="flex justify-between">
+                                <span>Play Sessions ({{ $playSessionSales->count() }}):</span>
+                                <span class="font-medium">${{ number_format($sessionsTotal, 2) }}</span>
+                            </li>
+                            <li class="flex justify-between">
+                                <span>Product Sales ({{ $productSales->count() }}):</span>
+                                <span class="font-medium">${{ number_format($salesTotal, 2) }}</span>
+                            </li>
+                            <li class="flex justify-between border-t border-green-200 pt-1 mt-1 font-medium">
+                                <span>Total Revenue:</span>
+                                <span>${{ number_format($totalRevenue, 2) }}</span>
+                            </li>
+                        </ul>
+                    </div>
+                    
+                    <div>
+                        <h3 class="text-sm font-medium text-green-700 mb-2">Payment Methods</h3>
+                        <ul class="space-y-1 text-sm">
+                            @foreach($paymentBreakdown as $method => $amount)
+                            <li class="flex justify-between">
+                                <span>{{ $method }}:</span>
+                                <span class="font-medium">
+                                    @if($method === 'LBP')
+                                        L.L {{ number_format($amount * config('play.lbp_exchange_rate', 90000), 0) }}
+                                        (${{ number_format($amount, 2) }})
+                                    @else
+                                        ${{ number_format($amount, 2) }}
+                                    @endif
+                                </span>
+                            </li>
+                            @endforeach
+                        </ul>
+                    </div>
+                </div>
+                
+                @if($activeSessionsCount > 0)
+                <div class="mt-4 text-sm text-yellow-700">
+                    <p class="font-medium">Note: Revenue from active sessions is not included in this summary.</p>
+                </div>
+                @endif
+                
+                <div class="mt-4 text-xs text-gray-600">
+                    <p>* Play Sessions and Product Sales are counted separately to avoid double-counting revenue.</p>
+                </div>
+            </div>
 
             <form method="POST" action="{{ route('cashier.shifts.update', $shift) }}">
                 @csrf
                 @method('PUT')
 
-                <input type="hidden" id="closing_amount" name="closing_amount" value="{{ old('closing_amount', '0.00') }}">
+                <div class="mb-6">
+                    <label for="closing_amount" class="block text-sm font-semibold text-gray-700 mb-1">Closing Amount ($)</label>
+                    <input type="number" step="0.01" min="0" 
+                        class="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        id="closing_amount" name="closing_amount" 
+                        value="{{ old('closing_amount', number_format($totalRevenue, 2, '.', '')) }}">
+                    <p class="text-sm text-gray-500 mt-1">Enter the actual cash amount at the end of your shift.</p>
+                </div>
 
                 <div class="mb-6">
                     <label for="notes" class="block text-sm font-semibold text-gray-700 mb-1">Closing Notes (Optional)</label>

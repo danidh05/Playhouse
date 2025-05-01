@@ -15,6 +15,20 @@
     
     <div class="flex space-x-2">
         @if(!$session->ended_at)
+        <a href="{{ route('cashier.sessions.show-addons', $session) }}" class="px-3 py-1 text-xs bg-amber-600 text-white rounded flex items-center">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+            </svg>
+            Add-ons
+        </a>
+        
+        <a href="{{ route('cashier.sessions.add-products', $session) }}" class="px-3 py-1 text-xs bg-blue-600 text-white rounded flex items-center">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
+            </svg>
+            Add Products
+        </a>
+        
         <a href="{{ route('cashier.sessions.show-end', $session) }}" class="px-3 py-1 text-xs bg-purple-600 text-white rounded flex items-center">
             <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
@@ -200,6 +214,57 @@
                         <a href="{{ route('cashier.sales.show', $sale) }}" class="text-xs text-primary hover:text-primary-dark">
                             View Sale #{{ $sale->id }}
                         </a>
+                    </div>
+                </div>
+                @endif
+                
+                @php
+                $pendingSales = \App\Models\Sale::where('play_session_id', $session->id)
+                    ->where('status', 'pending')
+                    ->latest()
+                    ->get();
+                @endphp
+                
+                @if(count($pendingSales) > 0)
+                <div class="mt-4 bg-yellow-50 border border-yellow-200 rounded-lg p-3">
+                    <div class="flex justify-between items-center mb-2">
+                        <span class="text-sm font-medium text-yellow-700">Pending Product Sales</span>
+                        <span class="text-xs bg-yellow-100 text-yellow-800 px-2 py-1 rounded-full">
+                            {{ count($pendingSales) }} {{ Str::plural('item', count($pendingSales)) }}
+                        </span>
+                    </div>
+                    
+                    <div class="max-h-40 overflow-y-auto">
+                        <table class="min-w-full text-xs">
+                            <thead>
+                                <tr class="text-left text-yellow-700">
+                                    <th class="py-1">Product</th>
+                                    <th class="py-1">Qty</th>
+                                    <th class="py-1">Price</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach($pendingSales as $pendingSale)
+                                    @foreach($pendingSale->items as $item)
+                                    <tr>
+                                        <td class="py-1">{{ $item->product->name }}</td>
+                                        <td class="py-1">{{ $item->quantity }}</td>
+                                        <td class="py-1">${{ number_format($item->subtotal, 2) }}</td>
+                                    </tr>
+                                    @endforeach
+                                @endforeach
+                            </tbody>
+                            <tfoot>
+                                <tr class="border-t border-yellow-200">
+                                    <td class="py-1 text-right font-medium" colspan="2">Total:</td>
+                                    <td class="py-1 font-medium">${{ number_format($pendingSales->sum('total_amount'), 2) }}</td>
+                                </tr>
+                            </tfoot>
+                        </table>
+                    </div>
+                    
+                    <div class="mt-2 text-xs text-yellow-700">
+                        <p>These items will be added to the final bill when the session ends.</p>
                     </div>
                 </div>
                 @endif

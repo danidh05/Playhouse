@@ -28,6 +28,7 @@ class Shift extends Model
         'closed_at',
         'starting_time',
         'ending_time',
+        'expected_ending_time',
     ];
 
     /**
@@ -43,6 +44,7 @@ class Shift extends Model
         'closed_at' => 'datetime',
         'starting_time' => 'datetime',
         'ending_time' => 'datetime',
+        'expected_ending_time' => 'datetime',
     ];
 
     /**

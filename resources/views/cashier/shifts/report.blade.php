@@ -34,13 +34,16 @@
             <h2 class="text-lg font-semibold mb-3">Financial Summary</h2>
             <div class="space-y-2">
                 <p><span class="font-medium">Total Revenue:</span> ${{ number_format($totalRevenue, 2) }}</p>
-                <p class="pl-4"><span class="font-medium">Play Sessions:</span> ${{ number_format($playSessions->sum('total_cost'), 2) }}</p>
-                <p class="pl-4"><span class="font-medium">Sales:</span> ${{ number_format($sales->sum('total_amount'), 2) }}</p>
+                <p class="pl-4"><span class="font-medium">Play Sessions ({{ $playSessionSales->count() }}):</span> ${{ number_format($sessionsTotal, 2) }}</p>
+                <p class="pl-4"><span class="font-medium">Product Sales ({{ $productSales->count() }}):</span> ${{ number_format($salesTotal, 2) }}</p>
+            </div>
+            <div class="mt-3 text-xs text-gray-600">
+                <p>* Play Sessions and Product Sales are counted separately to avoid double-counting revenue.</p>
             </div>
         </div>
     </div>
 
-    @if(count($playSessions) > 0)
+    @if(count($playSessionSales) > 0)
     <div class="mb-6">
         <h2 class="text-lg font-semibold mb-3">Play Sessions</h2>
         <div class="overflow-x-auto">
@@ -56,30 +59,30 @@
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-gray-200">
-                    @foreach($playSessions as $session)
+                    @foreach($playSessionSales as $sale)
                     <tr>
-                        <td class="px-4 py-2">{{ $session->child->name }}</td>
-                        <td class="px-4 py-2">{{ $session->started_at->format('H:i') }}</td>
-                        <td class="px-4 py-2">{{ $session->ended_at ? $session->ended_at->format('H:i') : 'Active' }}</td>
+                        <td class="px-4 py-2">{{ $sale->child ? $sale->child->name : 'Unknown' }}</td>
+                        <td class="px-4 py-2">{{ $sale->play_session ? $sale->play_session->started_at->format('H:i') : 'N/A' }}</td>
+                        <td class="px-4 py-2">{{ $sale->play_session && $sale->play_session->ended_at ? $sale->play_session->ended_at->format('H:i') : 'N/A' }}</td>
                         <td class="px-4 py-2">
-                            @if($session->ended_at)
+                            @if($sale->play_session && $sale->play_session->ended_at)
                                 @php
-                                    $sessionDuration = $session->started_at->diffAsCarbonInterval($session->ended_at)->cascade();
+                                    $sessionDuration = $sale->play_session->started_at->diffAsCarbonInterval($sale->play_session->ended_at)->cascade();
                                 @endphp
                                 {{ $sessionDuration->hours }}h {{ $sessionDuration->minutes }}m
                             @else
                                 N/A
                             @endif
                         </td>
-                        <td class="px-4 py-2">${{ number_format($session->total_cost, 2) }}</td>
-                        <td class="px-4 py-2">{{ $session->payment_method ?? 'Pending' }}</td>
+                        <td class="px-4 py-2">${{ number_format($sale->total_amount, 2) }}</td>
+                        <td class="px-4 py-2">{{ $sale->payment_method }}</td>
                     </tr>
                     @endforeach
                 </tbody>
                 <tfoot class="bg-gray-50">
                     <tr>
                         <td colspan="4" class="px-4 py-2 text-right font-medium">Total:</td>
-                        <td class="px-4 py-2 font-medium">${{ number_format($playSessions->sum('total_cost'), 2) }}</td>
+                        <td class="px-4 py-2 font-medium">${{ number_format($sessionsTotal, 2) }}</td>
                         <td></td>
                     </tr>
                 </tfoot>
@@ -88,9 +91,9 @@
     </div>
     @endif
 
-    @if(count($sales) > 0)
+    @if(count($productSales) > 0)
     <div>
-        <h2 class="text-lg font-semibold mb-3">Sales</h2>
+        <h2 class="text-lg font-semibold mb-3">Product Sales</h2>
         <div class="overflow-x-auto">
             <table class="min-w-full bg-white">
                 <thead class="bg-gray-100">
@@ -104,7 +107,7 @@
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-gray-200">
-                    @foreach($sales as $sale)
+                    @foreach($productSales as $sale)
                     <tr>
                         <td class="px-4 py-2">
                             @foreach($sale->items as $item)
@@ -130,7 +133,7 @@
                 <tfoot class="bg-gray-50">
                     <tr>
                         <td colspan="3" class="px-4 py-2 text-right font-medium">Total:</td>
-                        <td class="px-4 py-2 font-medium">${{ number_format($sales->sum('total_amount'), 2) }}</td>
+                        <td class="px-4 py-2 font-medium">${{ number_format($salesTotal, 2) }}</td>
                         <td colspan="2"></td>
                     </tr>
                 </tfoot>

@@ -27,23 +27,32 @@
                 @csrf
 
                 <div class="mb-6">
-                    <label class="block text-sm font-semibold text-gray-700 mb-2">Shift Type</label>
+                    <label class="block text-sm font-semibold text-gray-700 mb-2">Shift Times</label>
+                    <p class="text-sm text-gray-600 mb-3">Please specify your shift start and end times:</p>
 
-                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        @foreach($shiftTypes as $value => $label)
-                        <div class="flex items-center">
-                            <input type="radio" name="type" id="type_{{ $value }}" value="{{ $value }}"
-                                class="h-4 w-4 text-primary focus:ring-primary border-gray-300"
-                                {{ old('type', $defaultShiftType) == $value ? 'checked' : '' }}>
-                            <label for="type_{{ $value }}" class="ml-2 block text-sm text-gray-700">
-                                {{ $label }}
-                            </label>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label for="shift_start_time" class="block text-sm font-medium text-gray-700 mb-1">Start
+                                Time</label>
+                            <input type="time" name="shift_start_time" id="shift_start_time"
+                                class="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary"
+                                value="{{ old('shift_start_time', now()->format('H:i')) }}" required>
+                            <p class="text-xs text-gray-500 mt-1">The time you're starting your shift</p>
                         </div>
-                        @endforeach
+
+                        <div>
+                            <label for="shift_end_time" class="block text-sm font-medium text-gray-700 mb-1">Expected
+                                End Time</label>
+                            <input type="time" name="shift_end_time" id="shift_end_time"
+                                class="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary"
+                                value="{{ old('shift_end_time') }}" required>
+                            <p class="text-xs text-gray-500 mt-1">When you expect to end your shift</p>
+                        </div>
                     </div>
                 </div>
 
-                <input type="hidden" id="opening_amount" name="opening_amount" value="{{ old('opening_amount', '0.00') }}">
+                <input type="hidden" id="opening_amount" name="opening_amount"
+                    value="{{ old('opening_amount', '0.00') }}">
 
                 <div class="mb-6">
                     <label for="notes" class="block text-sm font-semibold text-gray-700 mb-1">Notes (Optional)</label>

@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>@yield('title', 'Admin Dashboard') - Playhouse</title>
+    <title>@yield('title', 'Admin Dashboard') - FluffyPuffy</title>
     <script src="https://cdn.tailwindcss.com"></script>
     @yield('styles')
 </head>
@@ -14,7 +14,7 @@
         <div class="container mx-auto px-4">
             <div class="flex justify-between items-center py-4">
                 <div class="flex items-center space-x-4">
-                    <a href="{{ route('admin.dashboard') }}" class="text-xl font-bold">Playhouse Admin</a>
+                    <a href="{{ route('admin.dashboard') }}" class="text-xl font-bold">FluffyPuffy</a>
                     <div class="hidden md:flex space-x-4">
                         <a href="{{ route('admin.visualizations') }}" class="hover:text-blue-200">Visualizations</a>
                         <a href="{{ route('admin.products.index') }}" class="hover:text-blue-200">Products</a>
@@ -52,7 +52,7 @@
 
     <footer class="bg-white py-4 mt-8 border-t">
         <div class="container mx-auto px-4 text-center text-gray-500">
-            &copy; {{ date('Y') }} Playhouse Management System
+            &copy; {{ date('Y') }} FluffyPuffy Management System
         </div>
     </footer>
 

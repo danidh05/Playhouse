@@ -38,21 +38,7 @@ class ShiftController extends Controller
                 ->with('info', 'You already have an active shift.');
         }
 
-        // Define shift types
-        $shiftTypes = [
-            'morning' => 'Morning Shift (Open - 2pm)',
-            'evening' => 'Evening Shift (2pm - Close)',
-            'full' => 'Full Day Shift'
-        ];
-
-        // Set default shift type based on time of day
-        $hour = now()->hour;
-        $defaultShiftType = ($hour < 14) ? 'morning' : 'evening';
-
-        return view('cashier.shifts.open', [
-            'shiftTypes' => $shiftTypes,
-            'defaultShiftType' => $defaultShiftType
-        ]);
+        return view('cashier.shifts.open');
     }
     
     /**
@@ -62,22 +48,56 @@ class ShiftController extends Controller
     {
         $request->validate([
             'opening_amount' => 'required|numeric|min:0',
-            'type' => 'required|in:morning,evening,full',
+            'shift_start_time' => 'required|date_format:H:i',
+            'shift_end_time' => 'required|date_format:H:i|after:shift_start_time',
             'notes' => 'nullable|string|max:500',
             'confirm' => 'required|accepted'
         ]);
 
+        // Get current date
+        $today = now()->toDateString();
+        
+        // Create DateTime objects for start and end times
+        $startDateTime = \Carbon\Carbon::createFromFormat(
+            'Y-m-d H:i', 
+            $today . ' ' . $request->shift_start_time
+        );
+        
+        $endDateTime = \Carbon\Carbon::createFromFormat(
+            'Y-m-d H:i', 
+            $today . ' ' . $request->shift_end_time
+        );
+        
+        // If end time is earlier than start time, assume it's for the next day
+        if ($endDateTime->lt($startDateTime)) {
+            $endDateTime->addDay();
+        }
+        
+        // Determine shift type based on duration and time of day
+        $duration = $startDateTime->diffInHours($endDateTime);
+        $startHour = (int)$startDateTime->format('H');
+        
+        if ($duration >= 8) {
+            $shiftType = 'full';
+        } elseif ($startHour < 14) {
+            $shiftType = 'morning';
+        } else {
+            $shiftType = 'evening';
+        }
+
         $shift = new Shift();
         $shift->user_id = auth()->id();
-        $shift->date = now()->toDateString();
-        $shift->starting_time = now();
-        $shift->type = $request->type;
+        $shift->date = $today;
+        $shift->starting_time = $startDateTime;
+        $shift->expected_ending_time = $endDateTime;
+        $shift->type = $shiftType; // Keep type for compatibility with existing reports
         $shift->opening_amount = $request->opening_amount;
         $shift->notes = $request->notes;
         $shift->save();
 
         return redirect()->route('cashier.dashboard')
-            ->with('success', 'Your shift has started successfully!');
+            ->with('success', 'Your shift has started successfully! Scheduled from ' . 
+                $startDateTime->format('g:i A') . ' to ' . $endDateTime->format('g:i A'));
     }
     
     /**
@@ -108,7 +128,50 @@ class ShiftController extends Controller
         
         $activeSessionsCount = $activeSessions->count();
         
-        return view('cashier.shifts.close', compact('shift', 'activeSessions', 'activeSessionsCount'));
+        // Calculate financial summary
+        // 1. Get completed play sessions (that don't have a sale record)
+        $playSessions = PlaySession::where('shift_id', $shift->id)
+            ->whereNotNull('ended_at')
+            ->get();
+            
+        // 2. Get all sales
+        $allSales = Sale::where('shift_id', $shift->id)->get();
+        
+        // 3. Separate sales that are linked to play sessions
+        $playSessionSales = $allSales->whereNotNull('play_session_id');
+        $productSales = $allSales->whereNull('play_session_id');
+        
+        // 4. Calculate totals without double-counting
+        $sessionsTotal = $playSessionSales->sum('total_amount');
+        $salesTotal = $productSales->sum('total_amount');
+        $totalRevenue = $sessionsTotal + $salesTotal;
+        
+        // Payment method breakdown
+        $paymentMethods = config('play.payment_methods', ['Cash', 'Card', 'Transfer', 'LBP']);
+        $paymentBreakdown = [];
+        
+        foreach ($paymentMethods as $method) {
+            $sessionAmount = $playSessionSales->where('payment_method', $method)->sum('total_amount');
+            $salesAmount = $productSales->where('payment_method', $method)->sum('total_amount');
+            $totalAmount = $sessionAmount + $salesAmount;
+            
+            if ($totalAmount > 0) {
+                $paymentBreakdown[$method] = $totalAmount;
+            }
+        }
+        
+        return view('cashier.shifts.close', compact(
+            'shift', 
+            'activeSessions', 
+            'activeSessionsCount', 
+            'playSessions', 
+            'salesTotal', 
+            'sessionsTotal', 
+            'totalRevenue',
+            'paymentBreakdown',
+            'playSessionSales',
+            'productSales'
+        ));
     }
     
     /**
@@ -135,8 +198,9 @@ class ShiftController extends Controller
             'notes' => $request->notes,
         ]);
         
-        return redirect()->route('cashier.dashboard')
-            ->with('success', 'Shift closed successfully. Any active play sessions will remain associated with this shift when they end.');
+        // Redirect to the shift report instead of the dashboard
+        return redirect()->route('cashier.shifts.report', $shift)
+            ->with('success', 'Shift closed successfully. Here is your shift report.');
     }
     
     /**
@@ -150,13 +214,31 @@ class ShiftController extends Controller
                 ->with('error', 'You cannot view this shift report.');
         }
         
-        $playSessions = PlaySession::where('shift_id', $shift->id)->get();
-        $sales = Sale::where('shift_id', $shift->id)->get();
+        // Get completed play sessions
+        $playSessions = PlaySession::where('shift_id', $shift->id)
+            ->whereNotNull('ended_at')
+            ->get();
         
-        $sessionsTotal = $playSessions->sum('total_cost');
-        $salesTotal = $sales->sum('total_price');
+        // Get all sales
+        $allSales = Sale::where('shift_id', $shift->id)->get();
+        
+        // Separate sales that are linked to play sessions from regular product sales
+        $playSessionSales = $allSales->whereNotNull('play_session_id');
+        $productSales = $allSales->whereNull('play_session_id');
+        
+        // Calculate totals without double-counting
+        $sessionsTotal = $playSessionSales->sum('total_amount');
+        $salesTotal = $productSales->sum('total_amount');
         $totalRevenue = $sessionsTotal + $salesTotal;
         
-        return view('cashier.shifts.report', compact('shift', 'playSessions', 'sales', 'totalRevenue'));
+        return view('cashier.shifts.report', compact(
+            'shift', 
+            'playSessions', 
+            'playSessionSales',
+            'productSales',
+            'sessionsTotal',
+            'salesTotal',
+            'totalRevenue'
+        ));
     }
 } 

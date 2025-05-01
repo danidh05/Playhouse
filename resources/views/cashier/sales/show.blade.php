@@ -97,91 +97,121 @@
                             }
                             
                             // Calculate billed time display
-                            if ($sale->play_session->actual_hours == 0 && $sale->play_session->ended_at) {
-                                $startTime = $sale->play_session->started_at;
-                                $endTime = $sale->play_session->ended_at;
-                                $durationInMinutes = $startTime->diffInMinutes($endTime);
-                                $calculatedHours = $durationInMinutes / 60;
+                        if ($sale->play_session->actual_hours == 0 && $sale->play_session->ended_at) {
+                        $startTime = $sale->play_session->started_at;
+                        $endTime = $sale->play_session->ended_at;
+                        $durationInMinutes = $startTime->diffInMinutes($endTime);
+                        $calculatedHours = $durationInMinutes / 60;
                                 $displayHours = $calculatedHours;
-                            } else {
+                        } else {
                                 $displayHours = $sale->play_session->actual_hours ?: 0;
-                            }
-                            
+                        }
+
                             // Format for display
                             $hoursDisplay = floor($displayHours);
                             $minutesDisplay = round(($displayHours - $hoursDisplay) * 60);
                             $billTimeDisplay = ($hoursDisplay > 0 ? $hoursDisplay . 'h ' : '') . $minutesDisplay . 'm';
                             $timeDisplay = $billTimeDisplay; // Use the same time display everywhere
-                        } else {
+                            } else {
                             $baseTotal = $sale->total_amount;
                             $timeDisplay = '';
                             $billTimeDisplay = '';
                             $sessionCost = 0;
-                        }
+                            }
 
-                        $displayTotal = $baseTotal * $multiplier;
-                        @endphp
+                            // If this is a parent sale with child sales, add their totals to the display total
+                            $childSalesTotal = 0;
+                            if ($sale->child_sales && $sale->child_sales->count() > 0) {
+                                $childSalesTotal = $sale->child_sales->sum('total_amount');
+                            }
 
-                        @if($sale->play_session)
-                        <!-- Display play session as an item -->
-                        <tr>
-                            <td class="px-4 py-3 whitespace-nowrap">
-                                <div class="text-sm font-medium text-gray-900">Play Session</div>
-                                <div class="text-xs text-gray-500">
+                            // For display purposes, we'll show the combined total
+                            $displayTotal = ($baseTotal + $childSalesTotal) * $multiplier;
+                            @endphp
+
+                            @if($sale->play_session)
+                            <!-- Display play session as an item -->
+                            <tr>
+                                <td class="px-4 py-3 whitespace-nowrap">
+                                    <div class="text-sm font-medium text-gray-900">Play Session</div>
+                                    <div class="text-xs text-gray-500">
+                                        {{ $timeDisplay }}
+                                        @if($sale->play_session->discount_pct > 0)
+                                        ({{ $sale->play_session->discount_pct }}% discount)
+                                        @endif
+                                    </div>
+                                </td>
+                                <td class="px-4 py-3 whitespace-nowrap text-right text-sm">
+                                    {{ number_format(config('play.hourly_rate', 10.00) * $multiplier, 2) }}{{ $suffix }}/hr
+                                </td>
+                                <td class="px-4 py-3 whitespace-nowrap text-right text-sm">
                                     {{ $timeDisplay }}
-                                    @if($sale->play_session->discount_pct > 0)
-                                    ({{ $sale->play_session->discount_pct }}% discount)
-                                    @endif
-                                </div>
-                            </td>
-                            <td class="px-4 py-3 whitespace-nowrap text-right text-sm">
-                                {{ number_format(config('play.hourly_rate', 10.00) * $multiplier, 2) }}{{ $suffix }}/hr
-                            </td>
-                            <td class="px-4 py-3 whitespace-nowrap text-right text-sm">
-                                {{ $timeDisplay }}
-                            </td>
-                            <td class="px-4 py-3 whitespace-nowrap text-right text-sm font-medium">
-                                {{ number_format($sessionCost * $multiplier, 2) }}{{ $suffix }}
-                            </td>
-                        </tr>
+                                </td>
+                                <td class="px-4 py-3 whitespace-nowrap text-right text-sm font-medium">
+                                    {{ number_format($sessionCost * $multiplier, 2) }}{{ $suffix }}
+                                </td>
+                            </tr>
 
-                        <!-- Display add-ons if any -->
-                        @foreach($sale->play_session->addOns as $addOn)
-                        <tr>
-                            <td class="px-4 py-3 whitespace-nowrap">
-                                <div class="text-sm font-medium text-gray-900">{{ $addOn->name }}</div>
-                                <div class="text-xs text-gray-500">Add-on</div>
-                            </td>
-                            <td class="px-4 py-3 whitespace-nowrap text-right text-sm">
-                                {{ number_format($addOn->price * $multiplier, 2) }}{{ $suffix }}
-                            </td>
-                            <td class="px-4 py-3 whitespace-nowrap text-right text-sm">
+                            <!-- Display add-ons if any -->
+                            @foreach($sale->play_session->addOns as $addOn)
+                            <tr>
+                                <td class="px-4 py-3 whitespace-nowrap">
+                                    <div class="text-sm font-medium text-gray-900">{{ $addOn->name }}</div>
+                                    <div class="text-xs text-gray-500">Add-on</div>
+                                </td>
+                                <td class="px-4 py-3 whitespace-nowrap text-right text-sm">
+                                    {{ number_format($addOn->price * $multiplier, 2) }}{{ $suffix }}
+                                </td>
+                                <td class="px-4 py-3 whitespace-nowrap text-right text-sm">
                                 <span class="text-xs text-gray-500">Qty: </span>{{ $addOn->pivot->qty }}
-                            </td>
-                            <td class="px-4 py-3 whitespace-nowrap text-right text-sm font-medium">
-                                {{ number_format($addOn->pivot->subtotal * $multiplier, 2) }}{{ $suffix }}
-                            </td>
-                        </tr>
-                        @endforeach
-                        @else
-                        <!-- Display regular product items -->
-                        @foreach($sale->items as $item)
-                        <tr>
-                            <td class="px-4 py-3 whitespace-nowrap">
-                                <div class="text-sm font-medium text-gray-900">{{ $item->product->name }}</div>
-                            </td>
-                            <td class="px-4 py-3 whitespace-nowrap text-right text-sm">
-                                {{ number_format($item->unit_price * $multiplier, 2) }}{{ $suffix }}
-                            </td>
-                            <td class="px-4 py-3 whitespace-nowrap text-right text-sm">
-                                {{ $item->quantity }}
-                            </td>
-                            <td class="px-4 py-3 whitespace-nowrap text-right text-sm font-medium">
-                                {{ number_format($item->subtotal * $multiplier, 2) }}{{ $suffix }}
-                            </td>
-                        </tr>
-                        @endforeach
-                        @endif
+                                </td>
+                                <td class="px-4 py-3 whitespace-nowrap text-right text-sm font-medium">
+                                    {{ number_format($addOn->pivot->subtotal * $multiplier, 2) }}{{ $suffix }}
+                                </td>
+                            </tr>
+                            @endforeach
+
+                            <!-- Include child sales' products as part of the main sale -->
+                            @if($sale->child_sales && $sale->child_sales->count() > 0)
+                                @foreach($sale->child_sales as $childSale)
+                                    @foreach($childSale->items as $item)
+                                    <tr>
+                                        <td class="px-4 py-3 whitespace-nowrap">
+                                            <div class="text-sm font-medium text-gray-900">{{ $item->product->name }}</div>
+                                            <div class="text-xs text-gray-500">Product</div>
+                                        </td>
+                                        <td class="px-4 py-3 whitespace-nowrap text-right text-sm">
+                                            {{ number_format($item->unit_price * $multiplier, 2) }}{{ $suffix }}
+                                        </td>
+                                        <td class="px-4 py-3 whitespace-nowrap text-right text-sm">
+                                            {{ $item->quantity }}
+                                        </td>
+                                        <td class="px-4 py-3 whitespace-nowrap text-right text-sm font-medium">
+                                            {{ number_format($item->subtotal * $multiplier, 2) }}{{ $suffix }}
+                                        </td>
+                                    </tr>
+                                    @endforeach
+                                @endforeach
+                            @endif
+                            @else
+                            <!-- Display regular product items -->
+                            @foreach($sale->items as $item)
+                            <tr>
+                                <td class="px-4 py-3 whitespace-nowrap">
+                                    <div class="text-sm font-medium text-gray-900">{{ $item->product->name }}</div>
+                                </td>
+                                <td class="px-4 py-3 whitespace-nowrap text-right text-sm">
+                                    {{ number_format($item->unit_price * $multiplier, 2) }}{{ $suffix }}
+                                </td>
+                                <td class="px-4 py-3 whitespace-nowrap text-right text-sm">
+                                    {{ $item->quantity }}
+                                </td>
+                                <td class="px-4 py-3 whitespace-nowrap text-right text-sm font-medium">
+                                    {{ number_format($item->subtotal * $multiplier, 2) }}{{ $suffix }}
+                                </td>
+                            </tr>
+                            @endforeach
+                            @endif
                     </tbody>
                     <tfoot>
                         <tr>
@@ -234,8 +264,8 @@
                     </p>
                 </div>
                 @php
-                // Use the values already calculated and stored
-                $total = $sale->total_amount;
+                // Use the combined total from earlier calculation
+                $total = $baseTotal + $childSalesTotal;
                 @endphp
 
                 <div>
@@ -252,8 +282,8 @@
                     <p class="text-sm text-gray-500">Change:</p>
                     <p class="font-medium">
                         @php
-                        // Calculate change as the difference between amount paid and total amount
-                        $change = $sale->amount_paid - $sale->total_amount;
+                        // Calculate change as the difference between amount paid and combined total
+                        $change = $sale->amount_paid - $total;
                         @endphp
 
                         @if($change > 0)
@@ -269,6 +299,45 @@
                 </div>
             </div>
         </div>
+
+        <!-- Related Sales Section -->
+        @if($sale->parent_sale || $sale->child_sales->count() > 0)
+        <div class="border-t p-6">
+            <h2 class="text-lg font-medium text-gray-800 mb-4">Related Sales Information</h2>
+
+            @if($sale->parent_sale)
+            <div class="mb-6">
+                <div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                    <div class="flex justify-between items-center">
+                        <div>
+                            <p class="text-sm font-medium">This is a product sale linked to a play session checkout</p>
+                            <p class="text-xs text-gray-600">Main sale: #{{ $sale->parent_sale->id }} ({{ $sale->parent_sale->created_at->format('M d, Y h:i A') }})</p>
+                        </div>
+                        <a href="{{ route('cashier.sales.show', $sale->parent_sale->id) }}" 
+                           class="px-3 py-1 text-xs bg-blue-500 text-white rounded hover:bg-blue-600">
+                            View Main Sale
+                        </a>
+                    </div>
+                </div>
+            </div>
+            @endif
+
+            @if($sale->child_sales->count() > 0)
+            <div>
+                <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                    <p class="text-sm mb-2">
+                        <strong>Note:</strong> This sale includes {{ $sale->child_sales->count() }} product transactions that were added during the play session.
+                        The products are already included in the items list above.
+                    </p>
+                    <p class="text-xs text-gray-600">
+                        For reference, these products were added in {{ $sale->child_sales->count() }} separate transactions during the session,
+                        but have been combined into this single bill for payment at checkout.
+                    </p>
+                </div>
+            </div>
+            @endif
+        </div>
+        @endif
 
         <!-- Customer Information (if available) -->
         @if($sale->child_id)
@@ -361,7 +430,12 @@
                 </div>
                 <div>
                     <p class="text-sm text-gray-500">Billed Hours:</p>
-                    <p class="font-medium">{{ $billTimeDisplay }}</p>
+                    <p class="font-medium">
+                        {{ $billTimeDisplay }}
+                        @if($sale->play_session->planned_hours > 0 && $displayHours != $sale->play_session->planned_hours)
+                        <span class="text-xs ml-2 text-gray-500">(Actual time played)</span>
+                        @endif
+                    </p>
                 </div>
                 <div>
                     <p class="text-sm text-gray-500">Hourly Rate:</p>
