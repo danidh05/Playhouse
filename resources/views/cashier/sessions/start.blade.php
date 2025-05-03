@@ -36,8 +36,11 @@
     <div class="bg-indigo-50 border-l-4 border-indigo-500 p-4 mb-6">
         <div class="flex">
             <div class="flex-shrink-0">
-                <svg class="h-5 w-5 text-indigo-500" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
-                    <path fill-rule="evenodd" d="M5 2a2 2 0 00-2 2v14l3.5-2 3.5 2 3.5-2 3.5 2V4a2 2 0 00-2-2H5zm2.5 3a1.5 1.5 0 100 3 1.5 1.5 0 000-3zm7 0a1.5 1.5 0 10-3 0 1.5 1.5 0 003 0zm-7 7a1.5 1.5 0 100 3 1.5 1.5 0 000-3zm7 0a1.5 1.5 0 10-3 0 1.5 1.5 0 003 0z" clip-rule="evenodd" />
+                <svg class="h-5 w-5 text-indigo-500" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"
+                    fill="currentColor">
+                    <path fill-rule="evenodd"
+                        d="M5 2a2 2 0 00-2 2v14l3.5-2 3.5 2 3.5-2 3.5 2V4a2 2 0 00-2-2H5zm2.5 3a1.5 1.5 0 100 3 1.5 1.5 0 000-3zm7 0a1.5 1.5 0 10-3 0 1.5 1.5 0 003 0zm-7 7a1.5 1.5 0 100 3 1.5 1.5 0 000-3zm7 0a1.5 1.5 0 10-3 0 1.5 1.5 0 003 0z"
+                        clip-rule="evenodd" />
                 </svg>
             </div>
             <div class="ml-3">
@@ -59,14 +62,16 @@
         <div class="mb-4">
             <label for="child_display" class="block text-gray-700 text-sm font-bold mb-2">Select Child</label>
             <div class="relative">
-                <input type="text" id="child_display" 
+                <input type="text" id="child_display"
                     class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline @error('child_id') border-red-500 @enderror"
                     placeholder="Click to select a child" readonly
                     value="{{ old('child_id') ? $children->firstWhere('id', old('child_id'))->name : '' }}" required>
                 <input type="hidden" name="child_id" id="child_id_input" value="{{ old('child_id') }}" required>
                 <button type="button" id="select_child_btn" class="absolute right-0 top-0 h-full px-3 text-gray-600">
                     <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                        <path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd" />
+                        <path fill-rule="evenodd"
+                            d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"
+                            clip-rule="evenodd" />
                     </svg>
                 </button>
             </div>
@@ -92,16 +97,16 @@
             <label for="planned_hours" class="block text-gray-700 text-sm font-bold mb-2">Planned Hours</label>
             <input type="number" name="planned_hours" id="planned_hours" min="0.1" max="24" step="0.1"
                 class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline @error('planned_hours') border-red-500 @enderror @if(isset($isFreeSession) && $isFreeSession) bg-gray-100 @endif"
-                value="{{ old('planned_hours', (isset($isFreeSession) && $isFreeSession) ? 1 : 1) }}" 
+                value="{{ old('planned_hours', (isset($isFreeSession) && $isFreeSession) ? 1 : 1) }}"
                 {{ (isset($isFreeSession) && $isFreeSession) ? 'readonly' : 'required' }}>
             @error('planned_hours')
             <p class="text-red-500 text-xs mt-1">{{ $message }}</p>
             @enderror
             <p class="text-sm text-gray-500 mt-1">Current hourly rate: ${{ number_format($hourlyRate, 2) }}</p>
             @if(isset($isFreeSession) && $isFreeSession)
-                <p class="text-sm text-indigo-600 mt-1">This free session is fixed at 1 hour.</p>
+            <p class="text-sm text-indigo-600 mt-1">This free session is fixed at 1 hour.</p>
             @else
-                <p class="text-sm text-gray-500 mt-1">For testing: You can set as low as 0.1 hours (6 minutes)</p>
+            <p class="text-sm text-gray-500 mt-1">For testing: You can set as low as 0.1 hours (6 minutes)</p>
             @endif
         </div>
 
@@ -116,9 +121,9 @@
             <p class="text-red-500 text-xs mt-1">{{ $message }}</p>
             @enderror
             @if(isset($isFreeSession) && $isFreeSession)
-                <p class="text-sm text-indigo-600 mt-1">100% discount applied for your loyalty reward.</p>
+            <p class="text-sm text-indigo-600 mt-1">100% discount applied for your loyalty reward.</p>
             @else
-                <p class="text-sm text-gray-500 mt-1">Enter a number between 0-100</p>
+            <p class="text-sm text-gray-500 mt-1">Enter a number between 0-100</p>
             @endif
         </div>
 
@@ -142,23 +147,25 @@
 <!-- Child Selection Modal -->
 @if(!isset($child))
 <div id="child-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center hidden z-50">
-    <div class="bg-white rounded-lg p-6 w-1/2 max-h-3/4 overflow-y-auto">
+    <div class="bg-white rounded-lg p-6 w-1/2 max-h-[75vh] overflow-y-auto">
         <div class="flex justify-between items-center mb-4">
             <h2 class="text-xl font-bold">Select Child</h2>
             <button onclick="closeChildModal()" class="text-gray-500 hover:text-gray-700">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24"
+                    stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
                 </svg>
             </button>
         </div>
-        
+
         <div class="mb-4">
-            <input type="text" id="child-search" placeholder="Search children..." class="border border-gray-300 rounded w-full p-2 mb-4">
-            
+            <input type="text" id="child-search" placeholder="Search children..."
+                class="border border-gray-300 rounded w-full p-2 mb-4">
+
             <div id="children-list">
                 @foreach($children as $childOption)
-                <div class="child-item p-3 border-b hover:bg-gray-50 cursor-pointer" 
-                     onclick="selectChild({{ $childOption->id }}, '{{ $childOption->name }}')">
+                <div class="child-item p-3 border-b hover:bg-gray-50 cursor-pointer"
+                    onclick="selectChild({{ $childOption->id }}, '{{ $childOption->name }}')">
                     <div class="font-medium">{{ $childOption->name }}</div>
                     <div class="text-sm text-gray-500">{{ $childOption->age ?? 'Age unknown' }}</div>
                 </div>
@@ -174,36 +181,36 @@
 @section('scripts')
 @if(!isset($child))
 <script>
-    document.getElementById('select_child_btn').addEventListener('click', function() {
-        document.getElementById('child-modal').classList.remove('hidden');
+document.getElementById('select_child_btn').addEventListener('click', function() {
+    document.getElementById('child-modal').classList.remove('hidden');
+});
+
+document.getElementById('child_display').addEventListener('click', function() {
+    document.getElementById('child-modal').classList.remove('hidden');
+});
+
+function closeChildModal() {
+    document.getElementById('child-modal').classList.add('hidden');
+}
+
+function selectChild(childId, childName) {
+    document.getElementById('child_id_input').value = childId;
+    document.getElementById('child_display').value = childName;
+    closeChildModal();
+}
+
+// Filter children based on search
+document.getElementById('child-search').addEventListener('input', function() {
+    const searchText = this.value.toLowerCase();
+    document.querySelectorAll('.child-item').forEach(item => {
+        const childName = item.querySelector('.font-medium').textContent.toLowerCase();
+        if (childName.includes(searchText)) {
+            item.style.display = 'block';
+        } else {
+            item.style.display = 'none';
+        }
     });
-    
-    document.getElementById('child_display').addEventListener('click', function() {
-        document.getElementById('child-modal').classList.remove('hidden');
-    });
-    
-    function closeChildModal() {
-        document.getElementById('child-modal').classList.add('hidden');
-    }
-    
-    function selectChild(childId, childName) {
-        document.getElementById('child_id_input').value = childId;
-        document.getElementById('child_display').value = childName;
-        closeChildModal();
-    }
-    
-    // Filter children based on search
-    document.getElementById('child-search').addEventListener('input', function() {
-        const searchText = this.value.toLowerCase();
-        document.querySelectorAll('.child-item').forEach(item => {
-            const childName = item.querySelector('.font-medium').textContent.toLowerCase();
-            if (childName.includes(searchText)) {
-                item.style.display = 'block';
-            } else {
-                item.style.display = 'none';
-            }
-        });
-    });
+});
 </script>
 @endif
 @endsection
