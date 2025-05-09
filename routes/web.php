@@ -98,6 +98,7 @@ Route::prefix('cashier')->name('cashier.')->middleware(['auth', 'role:cashier'])
         Route::get('/sessions/{session}/add-ons', [PlaySessionController::class, 'showAddOns'])->name('sessions.show-addons');
         Route::get('/sessions/{session}/add-products', [PlaySessionController::class, 'showAddProducts'])->name('sessions.add-products');
         Route::post('/sessions/{session}/add-products', [PlaySessionController::class, 'storeProducts'])->name('sessions.store-products');
+        Route::delete('/sessions/{session}', [PlaySessionController::class, 'destroy'])->name('sessions.destroy');
         
         // Sales routes
         Route::get('/sales', [SalesController::class, 'index'])->name('sales.index');
@@ -105,8 +106,60 @@ Route::prefix('cashier')->name('cashier.')->middleware(['auth', 'role:cashier'])
         Route::get('/sales/create', [SalesController::class, 'create'])->name('sales.create');
         Route::get('/sales/product-price', [SalesController::class, 'getProductPrice'])->name('sales.product-price');
         Route::post('/sales', [SalesController::class, 'store'])->name('sales.store');
+        
+        // Add-on only sales routes - moved before the '/sales/{sale}' route
+        Route::get('/sales/add-on-only', [SalesController::class, 'createAddOnOnly'])->name('sales.create-addon-only');
+        Route::post('/sales/add-on-only', [SalesController::class, 'storeAddOnOnly'])->name('sales.store-addon-only');
+        
         Route::get('/sales/{sale}', [SalesController::class, 'show'])->name('sales.show');
+        Route::delete('/sales/{sale}', [SalesController::class, 'destroy'])->name('sales.destroy');
     });
 });
 
 // require __DIR__.'/auth.php';
+
+// Temporary test route for session duration capping
+Route::get('/test-session-capping', function() {
+    // Only available in local environment
+    if (!app()->environment('local')) {
+        abort(404);
+    }
+    
+    // Create a test child if none exists
+    $child = \App\Models\Child::firstOrCreate(
+        ['name' => 'Test Child'],
+        [
+            'guardian_name' => 'Test Guardian',
+            'guardian_contact' => '123456789',
+            'birth_date' => now()->subYears(5),
+        ]
+    );
+    
+    // Find active shift or create one
+    $shift = \App\Models\Shift::where('cashier_id', auth()->id())
+        ->whereNull('closed_at')
+        ->first();
+        
+    if (!$shift) {
+        $shift = \App\Models\Shift::create([
+            'cashier_id' => auth()->id(),
+            'date' => today(),
+            'opened_at' => now(),
+            'type' => 'morning'
+        ]);
+    }
+    
+    // Create a test session that started 2 hours ago but with planned_hours of 1
+    $session = \App\Models\PlaySession::create([
+        'child_id' => $child->id,
+        'user_id' => auth()->id(),
+        'shift_id' => $shift->id,
+        'started_at' => now()->subHours(2), // Started 2 hours ago
+        'planned_hours' => 1, // But only planned for 1 hour
+        'total_cost' => 0,
+    ]);
+    
+    // Redirect to end session screen
+    return redirect()->route('cashier.sessions.show-end', $session)
+        ->with('success', 'Test session created with start time 2 hours ago and planned duration of 1 hour.');
+})->middleware(['auth', 'role:cashier'])->name('test.session-capping');

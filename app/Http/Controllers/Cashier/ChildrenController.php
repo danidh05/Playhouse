@@ -48,6 +48,12 @@ class ChildrenController extends Controller
         }
 
         $children = $query->latest()->paginate(10)->withQueryString();
+        
+        // Load play session count for each child
+        foreach ($children as $child) {
+            $child->play_sessions_count = $child->playSessions()->count();
+        }
+
         return view('cashier.children.index', compact('children'));
     }
 
@@ -65,7 +71,14 @@ class ChildrenController extends Controller
      */
     public function store(ChildRequest $request)
     {
-        $child = Child::create($request->validated());
+        $validatedData = $request->validated();
+        
+        // Handle marketing sources array
+        if ($request->has('marketing_sources')) {
+            $validatedData['marketing_sources'] = $request->marketing_sources;
+        }
+        
+        $child = Child::create($validatedData);
         
         // If redirect_to_sale is set, redirect to sales.create with child_id
         if ($request->has('redirect_to_sale') && $request->redirect_to_sale) {
@@ -89,7 +102,16 @@ class ChildrenController extends Controller
      */
     public function update(ChildRequest $request, Child $child)
     {
-        $child->update($request->validated());
+        $validatedData = $request->validated();
+        
+        // Handle marketing sources array
+        if ($request->has('marketing_sources')) {
+            $validatedData['marketing_sources'] = $request->marketing_sources;
+        } else {
+            $validatedData['marketing_sources'] = null;
+        }
+        
+        $child->update($validatedData);
         return redirect()->route('cashier.children.index')->with('success', 'Child updated successfully');
     }
 

@@ -23,6 +23,8 @@ class Child extends Model
         'guardian_name',
         'guardian_phone',
         'guardian_contact',
+        'marketing_sources',
+        'marketing_notes',
         'notes',
     ];
 
@@ -33,6 +35,7 @@ class Child extends Model
      */
     protected $casts = [
         'birth_date' => 'date',
+        'marketing_sources' => 'array',
     ];
 
     /**

@@ -9,14 +9,26 @@
             <h1 class="text-2xl font-bold text-gray-800">Play Sessions</h1>
             <p class="text-gray-600">Manage active and past play sessions</p>
         </div>
-        <a href="{{ route('cashier.sessions.create') }}"
-            class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 flex items-center">
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24"
-                stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
-            </svg>
-            Start New Session
-        </a>
+        <div class="flex space-x-2">
+            @if(app()->environment('local'))
+            <a href="{{ route('test.session-capping') }}"
+                class="px-4 py-2 bg-yellow-500 text-white rounded-md hover:bg-yellow-600 flex items-center">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24"
+                    stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                Test Time Capping
+            </a>
+            @endif
+            <a href="{{ route('cashier.sessions.create') }}"
+                class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 flex items-center">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24"
+                    stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+                </svg>
+                Start New Session
+            </a>
+        </div>
     </div>
 
     <!-- Active Sessions -->
@@ -36,6 +48,22 @@
 
         <div class="p-6">
             @if(count($activeSessions) > 0)
+            <!-- Info box for deleting sessions with incorrect start times -->
+            <div class="bg-blue-50 border-l-4 border-blue-500 p-4 mb-6">
+                <div class="flex">
+                    <div class="flex-shrink-0">
+                        <svg class="h-5 w-5 text-blue-500" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                            <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd" />
+                        </svg>
+                    </div>
+                    <div class="ml-3">
+                        <p class="text-sm text-blue-700">
+                            <strong>Tip:</strong> If a session has an incorrect start time, you can view the session details and click the "Delete Session" button to remove it and create a new one.
+                        </p>
+                    </div>
+                </div>
+            </div>
+            
             <div class="overflow-x-auto">
                 <table class="min-w-full divide-y divide-gray-200">
                     <thead class="bg-gray-50">
@@ -125,6 +153,13 @@
                                     class="ml-2 text-blue-700 bg-blue-100 hover:bg-blue-200 py-2 px-4 rounded-md border border-blue-300">
                                     Add Products
                                 </a>
+                                <form action="{{ route('cashier.sessions.destroy', $session->id) }}" method="POST" class="inline-block ml-2" onsubmit="return confirm('Are you sure you want to delete this session? This cannot be undone.');">
+                                    @csrf
+                                    @method('DELETE')
+                                    <button type="submit" class="text-white bg-red-600 hover:bg-red-700 py-2 px-4 rounded-md">
+                                        Delete
+                                    </button>
+                                </form>
                             </td>
                         </tr>
                         @endforeach

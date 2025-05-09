@@ -91,6 +91,43 @@
             </div>
 
             <div class="mt-6">
+                <label class="block text-gray-700 text-sm font-medium mb-3">How did you hear about us?</label>
+                <div class="bg-gray-50 p-4 rounded-lg border border-gray-200">
+                    <div class="grid grid-cols-2 md:grid-cols-3 gap-3">
+                        <div class="flex items-center">
+                            <input type="checkbox" name="marketing_sources[]" id="source_facebook" value="facebook" class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded" {{ in_array('facebook', old('marketing_sources', [])) ? 'checked' : '' }}>
+                            <label for="source_facebook" class="ml-2 block text-sm text-gray-700">Facebook</label>
+                        </div>
+                        <div class="flex items-center">
+                            <input type="checkbox" name="marketing_sources[]" id="source_instagram" value="instagram" class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded" {{ in_array('instagram', old('marketing_sources', [])) ? 'checked' : '' }}>
+                            <label for="source_instagram" class="ml-2 block text-sm text-gray-700">Instagram</label>
+                        </div>
+                        <div class="flex items-center">
+                            <input type="checkbox" name="marketing_sources[]" id="source_tiktok" value="tiktok" class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded" {{ in_array('tiktok', old('marketing_sources', [])) ? 'checked' : '' }}>
+                            <label for="source_tiktok" class="ml-2 block text-sm text-gray-700">TikTok</label>
+                        </div>
+                        <div class="flex items-center">
+                            <input type="checkbox" name="marketing_sources[]" id="source_passing_by" value="passing_by" class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded" {{ in_array('passing_by', old('marketing_sources', [])) ? 'checked' : '' }}>
+                            <label for="source_passing_by" class="ml-2 block text-sm text-gray-700">Saw it from outside</label>
+                        </div>
+                        <div class="flex items-center">
+                            <input type="checkbox" name="marketing_sources[]" id="source_mascot" value="mascot" class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded" {{ in_array('mascot', old('marketing_sources', [])) ? 'checked' : '' }}>
+                            <label for="source_mascot" class="ml-2 block text-sm text-gray-700">Mascot outside</label>
+                        </div>
+                        <div class="flex items-center">
+                            <input type="checkbox" name="marketing_sources[]" id="source_word_of_mouth" value="word_of_mouth" class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded" {{ in_array('word_of_mouth', old('marketing_sources', [])) ? 'checked' : '' }}>
+                            <label for="source_word_of_mouth" class="ml-2 block text-sm text-gray-700">Word of mouth</label>
+                        </div>
+                    </div>
+                    
+                    <div class="mt-3">
+                        <label for="marketing_notes" class="block text-gray-700 text-sm font-medium mb-2">Additional marketing details (optional)</label>
+                        <textarea name="marketing_notes" id="marketing_notes" rows="2" class="shadow-sm border border-gray-300 rounded-md w-full py-2 px-3 text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent">{{ old('marketing_notes') }}</textarea>
+                    </div>
+                </div>
+            </div>
+
+            <div class="mt-6">
                 <label for="notes" class="block text-gray-700 text-sm font-medium mb-2">Notes (Optional)</label>
                 <textarea name="notes" id="notes" rows="3"
                     class="shadow-sm border border-gray-300 rounded-md w-full py-2 px-3 text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent @error('notes') border-red-500 @enderror">{{ old('notes') }}</textarea>

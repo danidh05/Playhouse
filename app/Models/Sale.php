@@ -26,6 +26,7 @@ class Sale extends Model
         'play_session_id',
         'status',
         'parent_sale_id',
+        'notes',
     ];
 
     /**

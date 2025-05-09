@@ -166,8 +166,15 @@
                 @foreach($children as $childOption)
                 <div class="child-item p-3 border-b hover:bg-gray-50 cursor-pointer"
                     onclick="selectChild({{ $childOption->id }}, '{{ $childOption->name }}')">
-                    <div class="font-medium">{{ $childOption->name }}</div>
-                    <div class="text-sm text-gray-500">{{ $childOption->age ?? 'Age unknown' }}</div>
+                    <div class="flex justify-between items-center">
+                        <div>
+                            <div class="font-medium">{{ $childOption->name }}</div>
+                            <div class="text-sm text-gray-500">{{ $childOption->age ?? 'Age unknown' }}</div>
+                        </div>
+                        <div class="bg-primary-light text-primary px-2 py-1 rounded-full text-sm font-medium">
+                            {{ $childOption->play_sessions_count ?? 0 }} sessions
+                        </div>
+                    </div>
                 </div>
                 @endforeach
             </div>

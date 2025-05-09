@@ -39,7 +39,7 @@
             </div>
         </div>
     </div>
-    
+
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
         <!-- Play Session Durations -->
         <div class="bg-white rounded-lg shadow-md p-4">

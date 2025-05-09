@@ -25,6 +25,13 @@
             </svg>
             Print Receipt
         </button>
+        
+        <button onclick="showDeleteConfirmation()" class="ml-2 px-3 py-1 text-xs bg-red-600 text-white rounded flex items-center">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+            </svg>
+            Delete Receipt
+        </button>
     </div>
 </div>
 @endsection
@@ -89,45 +96,111 @@
                         if ($sale->play_session) {
                             $baseTotal = $sale->total_amount;
                             $sessionCost = $sale->total_amount;
-                            if ($sale->play_session->addOns->count() > 0) {
-                                $addOnsTotal = $sale->play_session->addOns->sum(function ($addOn) {
-                                    return $addOn->pivot->subtotal;
-                                });
-                                $sessionCost = $baseTotal - $addOnsTotal;
+                            
+                            // Check if this is a custom price session (extracted from notes)
+                            $hasCustomPrice = false;
+                            $customPrice = '';
+                            $customPriceNumeric = 0;
+                            
+                            if ($sale->play_session->notes && strpos($sale->play_session->notes, 'Manual price set by cashier') !== false) {
+                                $hasCustomPrice = true;
+                                $notes = explode("\n\n", $sale->play_session->notes);
+                                
+                                foreach ($notes as $note) {
+                                    if (strpos($note, 'Manual price set by cashier') !== false) {
+                                        if ($sale->payment_method === 'LBP') {
+                                            preg_match('/Manual price set by cashier: (.*?) LBP\./', $note, $matches);
+                                        } else {
+                                            preg_match('/Manual price set by cashier: \$(.*?)\./', $note, $matches);
+                                        }
+                                        
+                                        if (isset($matches[1])) {
+                                            $customPrice = $matches[1];
+                                            // Clean up the number (remove commas)
+                                            $customPriceNumeric = str_replace(',', '', $matches[1]);
+                                            
+                                            // If we're in LBP mode and displaying a custom price in LBP, convert back to USD for calculations
+                                            if ($sale->payment_method === 'LBP') {
+                                                // This is already the LBP price, so we'll keep it for display
+                                                $customPriceDisplay = $customPrice . ' L.L';
+                                                
+                                                // For total calculations, we'll use this LBP value directly
+                                                $customPriceForTotals = (float)$customPriceNumeric;
+                                            } else {
+                                                $customPriceDisplay = '$' . $customPrice;
+                                                
+                                                // For USD, use the numeric value directly
+                                                $customPriceForTotals = (float)$customPriceNumeric;
+                                            }
+                                            
+                                            // Override the baseTotal with our custom price
+                                            if ($sale->payment_method === 'LBP') {
+                                                // If we're in LBP mode, we need to use the custom price in LBP (not convert it)
+                                                $baseTotal = $customPriceForTotals / $lbpRate;  // Store in USD
+                                            } else {
+                                                $baseTotal = $customPriceForTotals;  // Already in USD
+                                            }
+                                        }
+                                        break;
+                                    }
+                                }
+                                
+                                // For custom priced sessions, session cost is the custom price
+                                $sessionCost = $baseTotal;
+                            } else {
+                                // Regular calculation for non-custom prices
+                                if ($sale->play_session->addOns->count() > 0) {
+                                    $addOnsTotal = $sale->play_session->addOns->sum(function ($addOn) {
+                                        return $addOn->pivot->subtotal;
+                                    });
+                                    $sessionCost = $baseTotal - $addOnsTotal;
+                                }
                             }
                             
                             // Calculate billed time display
-                        if ($sale->play_session->actual_hours == 0 && $sale->play_session->ended_at) {
-                        $startTime = $sale->play_session->started_at;
-                        $endTime = $sale->play_session->ended_at;
-                        $durationInMinutes = $startTime->diffInMinutes($endTime);
-                        $calculatedHours = $durationInMinutes / 60;
+                            if ($sale->play_session->actual_hours == 0 && $sale->play_session->ended_at) {
+                                $startTime = $sale->play_session->started_at;
+                                $endTime = $sale->play_session->ended_at;
+                                $durationInMinutes = $startTime->diffInMinutes($endTime);
+                                $calculatedHours = $durationInMinutes / 60;
                                 $displayHours = $calculatedHours;
-                        } else {
+                            } else {
                                 $displayHours = $sale->play_session->actual_hours ?: 0;
-                        }
+                            }
 
                             // Format for display
                             $hoursDisplay = floor($displayHours);
                             $minutesDisplay = round(($displayHours - $hoursDisplay) * 60);
                             $billTimeDisplay = ($hoursDisplay > 0 ? $hoursDisplay . 'h ' : '') . $minutesDisplay . 'm';
                             $timeDisplay = $billTimeDisplay; // Use the same time display everywhere
-                            } else {
+                        } else {
                             $baseTotal = $sale->total_amount;
                             $timeDisplay = '';
                             $billTimeDisplay = '';
                             $sessionCost = 0;
-                            }
+                            $hasCustomPrice = false;
+                        }
 
-                            // If this is a parent sale with child sales, add their totals to the display total
-                            $childSalesTotal = 0;
-                            if ($sale->child_sales && $sale->child_sales->count() > 0) {
-                                $childSalesTotal = $sale->child_sales->sum('total_amount');
-                            }
+                        // If this is a parent sale with child sales, add their totals to the display total
+                        $childSalesTotal = 0;
+                        if ($sale->child_sales && $sale->child_sales->count() > 0) {
+                            $childSalesTotal = $sale->child_sales->sum('total_amount');
+                        }
 
-                            // For display purposes, we'll show the combined total
+                        // For display purposes
+                        if ($hasCustomPrice) {
+                            if ($sale->payment_method === 'LBP') {
+                                // For LBP, use the custom price directly (already in LBP)
+                                $displayTotal = $customPriceForTotals;
+                            } else {
+                                // For USD, apply the multiplier (which is 1 for USD)
+                                $displayTotal = $customPriceForTotals * $multiplier;
+                            }
+                        } else {
+                            // Normal calculation when no custom price
                             $displayTotal = ($baseTotal + $childSalesTotal) * $multiplier;
-                            @endphp
+                        }
+                        @endphp
 
                             @if($sale->play_session)
                             <!-- Display play session as an item -->
@@ -136,19 +209,33 @@
                                     <div class="text-sm font-medium text-gray-900">Play Session</div>
                                     <div class="text-xs text-gray-500">
                                         {{ $timeDisplay }}
-                                        @if($sale->play_session->discount_pct > 0)
+                                        @if($hasCustomPrice)
+                                        <span class="ml-1 px-1.5 py-0.5 bg-blue-100 text-blue-800 rounded-full text-xs">Custom Price</span>
+                                        @elseif($sale->play_session->discount_pct > 0)
                                         ({{ $sale->play_session->discount_pct }}% discount)
                                         @endif
                                     </div>
                                 </td>
                                 <td class="px-4 py-3 whitespace-nowrap text-right text-sm">
+                                    @if($hasCustomPrice)
+                                    <span class="text-blue-600 font-medium">Flat Rate</span>
+                                    @else
                                     {{ number_format(config('play.hourly_rate', 10.00) * $multiplier, 2) }}{{ $suffix }}/hr
+                                    @endif
                                 </td>
                                 <td class="px-4 py-3 whitespace-nowrap text-right text-sm">
+                                    @if($hasCustomPrice)
+                                    1
+                                    @else
                                     {{ $timeDisplay }}
+                                    @endif
                                 </td>
                                 <td class="px-4 py-3 whitespace-nowrap text-right text-sm font-medium">
+                                    @if($hasCustomPrice)
+                                    <span class="text-blue-600 font-medium">{{ $customPriceDisplay }}</span>
+                                    @else
                                     {{ number_format($sessionCost * $multiplier, 2) }}{{ $suffix }}
+                                    @endif
                                 </td>
                             </tr>
 
@@ -196,18 +283,28 @@
                             @else
                             <!-- Display regular product items -->
                             @foreach($sale->items as $item)
-                            <tr>
-                                <td class="px-4 py-3 whitespace-nowrap">
-                                    <div class="text-sm font-medium text-gray-900">{{ $item->product->name }}</div>
+                            <tr class="border-b">
+                                <td class="px-4 py-3">
+                                    @if($item->product_id)
+                                        {{ $item->product->name }}
+                                    @elseif($item->add_on_id)
+                                        {{ $item->addOn->name }} <span class="text-xs text-primary font-medium">(Add-on)</span>
+                                    @endif
                                 </td>
-                                <td class="px-4 py-3 whitespace-nowrap text-right text-sm">
-                                    {{ number_format($item->unit_price * $multiplier, 2) }}{{ $suffix }}
+                                <td class="px-4 py-3 text-center">{{ $item->quantity }}</td>
+                                <td class="px-4 py-3 text-right">
+                                    @if($sale->payment_method === 'LBP')
+                                    {{ number_format($item->unit_price * config('play.lbp_exchange_rate', 90000)) }} L.L
+                                    @else
+                                    ${{ number_format($item->unit_price, 2) }}
+                                    @endif
                                 </td>
-                                <td class="px-4 py-3 whitespace-nowrap text-right text-sm">
-                                    {{ $item->quantity }}
-                                </td>
-                                <td class="px-4 py-3 whitespace-nowrap text-right text-sm font-medium">
-                                    {{ number_format($item->subtotal * $multiplier, 2) }}{{ $suffix }}
+                                <td class="px-4 py-3 text-right">
+                                    @if($sale->payment_method === 'LBP')
+                                    {{ number_format($item->subtotal * config('play.lbp_exchange_rate', 90000)) }} L.L
+                                    @else
+                                    ${{ number_format($item->subtotal, 2) }}
+                                    @endif
                                 </td>
                             </tr>
                             @endforeach
@@ -218,6 +315,9 @@
                             <td colspan="3" class="px-4 py-3 text-sm font-medium text-gray-900 text-right">Total:</td>
                             <td class="px-4 py-3 whitespace-nowrap text-base font-bold text-gray-900 text-right">
                                 {{ number_format($displayTotal, 2) }}{{ $suffix }}
+                                @if($hasCustomPrice)
+                                <div class="text-xs text-blue-600">(Custom price set by cashier)</div>
+                                @endif
                             </td>
                         </tr>
                     </tfoot>
@@ -264,17 +364,37 @@
                     </p>
                 </div>
                 @php
-                // Use the combined total from earlier calculation
-                $total = $baseTotal + $childSalesTotal;
+                // Use the combined total from earlier calculation or custom price if set
+                if ($hasCustomPrice) {
+                    if ($sale->payment_method === 'LBP') {
+                        // For LBP, use the custom price directly
+                        $total = $customPriceForTotals / $lbpRate; // Convert to USD for internal calculations
+                    } else {
+                        $total = $customPriceForTotals;
+                    }
+                } else {
+                    $total = $baseTotal + $childSalesTotal;
+                }
                 @endphp
 
                 <div>
                     <p class="text-sm text-gray-500">Total:</p>
                     <p class="font-medium">
                         @if($sale->payment_method === 'LBP')
-                        {{ number_format($total * config('play.lbp_exchange_rate', 90000)) }} L.L
+                            @if($hasCustomPrice)
+                            {{ $customPriceDisplay }}
+                            @else
+                            {{ number_format($total * config('play.lbp_exchange_rate', 90000)) }} L.L
+                            @endif
                         @else
-                        ${{ number_format($total, 2) }}
+                            @if($hasCustomPrice)
+                            {{ $customPriceDisplay }}
+                            @else
+                            ${{ number_format($total, 2) }}
+                            @endif
+                        @endif
+                        @if($hasCustomPrice)
+                        <span class="text-xs text-blue-600 ml-2">(Custom price)</span>
                         @endif
                     </p>
                 </div>
@@ -283,12 +403,26 @@
                     <p class="font-medium">
                         @php
                         // Calculate change as the difference between amount paid and combined total
-                        $change = $sale->amount_paid - $total;
+                        // For custom prices, ensure we're using the correct values for comparison
+                        if ($hasCustomPrice) {
+                            if ($sale->payment_method === 'LBP') {
+                                // For LBP, the amount paid is stored in USD, so convert before comparing
+                                $change = $sale->amount_paid - $total;
+                            } else {
+                                $change = $sale->amount_paid - $total;
+                            }
+                        } else {
+                            $change = $sale->amount_paid - $total;
+                        }
                         @endphp
 
                         @if($change > 0)
                         @if($sale->payment_method === 'LBP')
-                        {{ number_format($change * config('play.lbp_exchange_rate', 90000)) }} L.L
+                            @if($hasCustomPrice)
+                            {{ number_format($change * $lbpRate) }} L.L
+                            @else
+                            {{ number_format($change * config('play.lbp_exchange_rate', 90000)) }} L.L
+                            @endif
                         @else
                         ${{ number_format($change, 2) }}
                         @endif
@@ -360,6 +494,53 @@
                     <p class="text-sm text-gray-500">Phone:</p>
                     <p class="font-medium">{{ $sale->child->phone ?? 'N/A' }}</p>
                 </div>
+                <div>
+                    <p class="text-sm text-gray-500">Play Sessions:</p>
+                    <p class="font-medium">
+                        <span class="bg-primary-light text-primary px-2 py-1 rounded-full text-sm font-medium">
+                            {{ $playSessionsCount ?? 0 }}
+                        </span>
+                        <span class="text-sm text-gray-500 ml-1">total sessions</span>
+                    </p>
+                </div>
+                
+                @if(!empty($sale->child->marketing_sources))
+                <div class="col-span-1 md:col-span-2 mt-3">
+                    <p class="text-sm text-gray-500">Marketing Sources:</p>
+                    <div class="flex flex-wrap gap-2 mt-1">
+                        @foreach($sale->child->marketing_sources as $source)
+                            <span class="px-2 py-1 text-xs bg-blue-100 text-blue-800 rounded-full">
+                                @switch($source)
+                                    @case('facebook')
+                                        Facebook
+                                        @break
+                                    @case('instagram')
+                                        Instagram
+                                        @break
+                                    @case('tiktok')
+                                        TikTok
+                                        @break
+                                    @case('passing_by')
+                                        Saw from outside
+                                        @break
+                                    @case('mascot')
+                                        Mascot outside
+                                        @break
+                                    @case('word_of_mouth')
+                                        Word of mouth
+                                        @break
+                                    @default
+                                        {{ $source }}
+                                @endswitch
+                            </span>
+                        @endforeach
+                    </div>
+                    
+                    @if(!empty($sale->child->marketing_notes))
+                    <p class="text-xs text-gray-600 mt-2">{{ $sale->child->marketing_notes }}</p>
+                    @endif
+                </div>
+                @endif
             </div>
         </div>
         @endif
@@ -431,20 +612,29 @@
                 <div>
                     <p class="text-sm text-gray-500">Billed Hours:</p>
                     <p class="font-medium">
+                        @if($hasCustomPrice)
+                        <span class="text-blue-600">Custom price applied</span>
+                        @else
                         {{ $billTimeDisplay }}
                         @if($sale->play_session->planned_hours > 0 && $displayHours != $sale->play_session->planned_hours)
                         <span class="text-xs ml-2 text-gray-500">(Actual time played)</span>
                         @endif
+                        @endif
                     </p>
                 </div>
+                
                 <div>
                     <p class="text-sm text-gray-500">Hourly Rate:</p>
                     <p class="font-medium">
+                        @if($hasCustomPrice)
+                        <span class="text-blue-600">N/A - Custom pricing</span>
+                        @else
                         @if($sale->payment_method === 'LBP')
                         {{ number_format(config('play.hourly_rate', 10.00) * config('play.lbp_exchange_rate', 90000)) }}
                         L.L
                         @else
                         ${{ number_format(config('play.hourly_rate', 10.00), 2) }}
+                        @endif
                         @endif
                     </p>
                 </div>
@@ -554,4 +744,77 @@ body {
     max-width: 100%;
 }
 </style>
+
+<!-- Delete Confirmation Modal -->
+<div id="delete-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center hidden z-50">
+    <div class="bg-white rounded-lg p-6 w-1/3 max-w-md">
+        <div class="flex justify-between items-center mb-4">
+            <h2 class="text-xl font-bold text-red-600">Delete Confirmation</h2>
+            <button onclick="hideDeleteConfirmation()" class="text-gray-500 hover:text-gray-700">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+            </button>
+        </div>
+        
+        <div class="mb-6">
+            <p class="text-gray-700 mb-2">Are you sure you want to delete this sale receipt?</p>
+            
+            @if($sale->play_session_id)
+            <div class="bg-yellow-50 border-l-4 border-yellow-500 p-4">
+                <div class="flex">
+                    <div class="flex-shrink-0">
+                        <svg class="h-5 w-5 text-yellow-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                            <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd" />
+                        </svg>
+                    </div>
+                    <div class="ml-3">
+                        <p class="text-sm text-yellow-700">
+                            <strong>Warning!</strong> This will also delete the associated play session.
+                        </p>
+                    </div>
+                </div>
+            </div>
+            @endif
+            
+            <div class="mt-4 bg-red-50 border-l-4 border-red-500 p-4">
+                <div class="flex">
+                    <div class="flex-shrink-0">
+                        <svg class="h-5 w-5 text-red-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                            <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd" />
+                        </svg>
+                    </div>
+                    <div class="ml-3">
+                        <p class="text-sm text-red-700">
+                            <strong>Important!</strong> This action cannot be undone.
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="flex justify-end space-x-3">
+            <button onclick="hideDeleteConfirmation()" class="px-4 py-2 bg-gray-300 text-gray-800 rounded hover:bg-gray-400">
+                Cancel
+            </button>
+            <form action="{{ route('cashier.sales.destroy', $sale->id) }}" method="POST">
+                @csrf
+                @method('DELETE')
+                <button type="submit" class="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700">
+                    Delete
+                </button>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+    function showDeleteConfirmation() {
+        document.getElementById('delete-modal').classList.remove('hidden');
+    }
+    
+    function hideDeleteConfirmation() {
+        document.getElementById('delete-modal').classList.add('hidden');
+    }
+</script>
 @endsection

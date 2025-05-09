@@ -18,6 +18,7 @@ class SaleItem extends Model
     protected $fillable = [
         'sale_id',
         'product_id',
+        'add_on_id',
         'quantity',
         'unit_price',
         'subtotal'
@@ -47,5 +48,13 @@ class SaleItem extends Model
     public function product(): BelongsTo
     {
         return $this->belongsTo(Product::class);
+    }
+    
+    /**
+     * Get the add-on for this sale item.
+     */
+    public function addOn(): BelongsTo
+    {
+        return $this->belongsTo(AddOn::class);
     }
 } 

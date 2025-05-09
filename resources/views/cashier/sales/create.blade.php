@@ -160,10 +160,17 @@
                 @if(isset($children) && count($children) > 0)
                     @foreach($children as $child)
                     <div class="child-item p-3 border-b hover:bg-gray-50 cursor-pointer" onclick="selectChild({{ $child->id }}, '{{ $child->name }}')">
-                        <div class="font-medium">{{ $child->name }}</div>
-                        @if(isset($child->guardian_name))
-                        <div class="text-sm text-gray-500">Parent: {{ $child->guardian_name }}</div>
-                        @endif
+                        <div class="flex justify-between items-center">
+                            <div>
+                                <div class="font-medium">{{ $child->name }}</div>
+                                @if(isset($child->guardian_name))
+                                <div class="text-sm text-gray-500">Parent: {{ $child->guardian_name }}</div>
+                                @endif
+                            </div>
+                            <div class="bg-primary-light text-primary px-2 py-1 rounded-full text-sm font-medium">
+                                {{ $child->play_sessions_count ?? 0 }} sessions
+                            </div>
+                        </div>
                     </div>
                     @endforeach
                 @else

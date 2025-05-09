@@ -63,6 +63,11 @@ class PlaySessionController extends Controller
         // If we still don't have a child, show all children to select from
         $children = Child::orderBy('name')->get();
         
+        // Add play session count for each child
+        foreach ($children as $childOption) {
+            $childOption->play_sessions_count = PlaySession::where('child_id', $childOption->id)->count();
+        }
+        
         // Find an active shift for the current cashier
         $activeShift = Shift::where('cashier_id', Auth::id())
                            ->whereNull('closed_at')
@@ -120,6 +125,11 @@ class PlaySessionController extends Controller
         
         $hourlyRate = config('play.hourly_rate', 10.00);
         $children = Child::orderBy('name')->get();
+        
+        // Add play session count for each child
+        foreach ($children as $childOption) {
+            $childOption->play_sessions_count = PlaySession::where('child_id', $childOption->id)->count();
+        }
         
         // Check if this would be a free session
         $paidSessionsCount = PlaySession::where('child_id', $child->id)
@@ -221,6 +231,9 @@ class PlaySessionController extends Controller
         // Load relationships
         $session->load(['child', 'user', 'shift', 'addOns']);
         
+        // Get total play sessions count for this child
+        $playSessionsCount = PlaySession::where('child_id', $session->child_id)->count();
+        
         // Get session duration
         if ($session->ended_at) {
             $endTime = $session->ended_at;
@@ -242,7 +255,7 @@ class PlaySessionController extends Controller
         // Check if there's a related sale
         $sale = \App\Models\Sale::where('play_session_id', $session->id)->first();
         
-        return view('cashier.sessions.show', compact('session', 'duration', 'progress', 'sale'));
+        return view('cashier.sessions.show', compact('session', 'duration', 'progress', 'sale', 'playSessionsCount'));
     }
 
     /**
@@ -275,20 +288,30 @@ class PlaySessionController extends Controller
 
         // Calculate duration in hours for billing (rounded to 2 decimals)
         $durationInHours = round($durationInSeconds / 3600, 2);
+        
+        // Cap the billable hours at the planned hours if specified
+        $actualDurationForBilling = $durationInHours;
+        $cappedHours = false;
+        if ($session->planned_hours > 0 && $durationInHours > $session->planned_hours) {
+            $actualDurationForBilling = $session->planned_hours;
+            $cappedHours = true;
+        }
 
         // Get hourly rate from config
         $hourlyRate = config('play.hourly_rate', 10.00);
 
-        // Calculate time cost before discount
-        $rawTimeCost = round($durationInHours * $hourlyRate, 2);
+        // Calculate time cost before discount - use the capped duration
+        $rawTimeCost = round($actualDurationForBilling * $hourlyRate, 2);
 
         // Store calculated values in session for later use in end method
         $sessionKey = "play_session_{$session->id}_end_data";
         $request->session()->put($sessionKey, [
             'initialDuration' => $initialDuration,
-            'durationInHours' => $durationInHours,
+            'durationInHours' => $actualDurationForBilling, // Store the capped duration
             'rawTimeCost' => $rawTimeCost,
-            'endTime' => $now
+            'endTime' => $now,
+            'cappedHours' => $cappedHours,
+            'actualElapsedHours' => $durationInHours // Store the actual elapsed hours for reference
         ]);
 
         // Get add-ons and their total - this can change between requests
@@ -328,6 +351,8 @@ class PlaySessionController extends Controller
             'paymentMethods',
             'addonsTotal',
             'durationInHours',
+            'actualDurationForBilling',
+            'cappedHours',
             'initialDuration',
             'rawTimeCost',
             'timeCost',
@@ -354,6 +379,7 @@ class PlaySessionController extends Controller
         $request->validate([
             'payment_method' => ['required', Rule::in($paymentMethods)],
             'amount_paid' => 'required|numeric|min:0',
+            'custom_total' => 'required|numeric|min:0', // Validate the new custom price field
             'total_amount' => 'required|numeric|min:0',
         ]);
     
@@ -379,17 +405,48 @@ class PlaySessionController extends Controller
         $endData = $request->session()->get($sessionKey);
         
         if ($endData && isset($endData['durationInHours'])) {
-            // Use the duration stored in the session
+            // Use the duration stored in the session (which might be capped)
             $actualHours = $endData['durationInHours'];
             $endTime = $endData['endTime'];
+            
+            // Set note if hours were capped
+            $noteAboutCapping = '';
+            if (isset($endData['cappedHours']) && $endData['cappedHours']) {
+                $noteAboutCapping = "Note: Billable hours capped at planned hours ({$session->planned_hours}h). Actual session duration: {$endData['actualElapsedHours']}h.";
+                
+                // If there's an existing note, append to it
+                if ($session->notes) {
+                    $session->notes .= "\n\n" . $noteAboutCapping;
+                } else {
+                    $session->notes = $noteAboutCapping;
+                }
+            }
+            
         } else {
             // Fallback to calculating it now
             $startTime = Carbon::parse($session->started_at);
             $endTime = Carbon::now();
             $durationHours = max(0, $endTime->diffInMinutes($startTime) / 60);
-            $actualHours = number_format($durationHours, 2);
+            
+            // Cap at planned hours if needed
+            if ($session->planned_hours > 0 && $durationHours > $session->planned_hours) {
+                $actualHours = $session->planned_hours;
+                
+                // Add note about capping
+                $noteAboutCapping = "Note: Billable hours capped at planned hours ({$session->planned_hours}h). Actual session duration: " . number_format($durationHours, 2) . "h.";
+                
+                // If there's an existing note, append to it
+                if ($session->notes) {
+                    $session->notes .= "\n\n" . $noteAboutCapping;
+                } else {
+                    $session->notes = $noteAboutCapping;
+                }
+            } else {
+                $actualHours = number_format($durationHours, 2);
+            }
         }
         
+        // We'll still calculate the standard cost for record-keeping
         // Get hourly rate from config
         $hourlyRate = config('play.hourly_rate', 10.00);
         // Calculate base total from actual hours - this is the exact duration in decimal hours
@@ -412,19 +469,46 @@ class PlaySessionController extends Controller
             
         $pendingSalesTotal = $pendingSales->sum('total_amount');
         
-        // Total cost is discounted time cost plus full add-ons cost plus pending sales
-        $totalCost = round($timeCost + $addOnsTotal + $pendingSalesTotal, 2);
+        // Calculate the standard total cost as before (for reference only)
+        $calculatedTotalCost = round($timeCost + $addOnsTotal + $pendingSalesTotal, 2);
     
-        // Handle currency conversion
+        // Use the custom price instead of the calculated cost
         $paymentMethod = $request->payment_method;
         $lbpRate = config('play.lbp_exchange_rate', 90000);
     
         if ($paymentMethod === 'LBP') {
+            // Convert the custom price from LBP to USD for storage
+            $totalAmountUsd = round($request->custom_total / $lbpRate, 2);
             $amountPaidUsd = round($request->amount_paid / $lbpRate, 2);
-            $totalAmountUsd = $totalCost;
+            
+            // Add a note if the manual price differs from the calculated price
+            $calculatedAmountLbp = round($calculatedTotalCost * $lbpRate);
+            if (abs($request->custom_total - $calculatedAmountLbp) > 0.01 * $calculatedAmountLbp) {
+                $customPriceNote = "Note: Manual price set by cashier: " . number_format($request->custom_total) . " LBP. ";
+                $customPriceNote .= "Standard calculated price would have been: " . number_format($calculatedAmountLbp) . " LBP.";
+                
+                if ($session->notes) {
+                    $session->notes .= "\n\n" . $customPriceNote;
+                } else {
+                    $session->notes = $customPriceNote;
+                }
+            }
         } else {
+            // For USD payments
+            $totalAmountUsd = round($request->custom_total, 2);
             $amountPaidUsd = round($request->amount_paid, 2);
-            $totalAmountUsd = $totalCost;
+            
+            // Add a note if the manual price differs from the calculated price
+            if (abs($totalAmountUsd - $calculatedTotalCost) > 0.01) {
+                $customPriceNote = "Note: Manual price set by cashier: $" . number_format($totalAmountUsd, 2) . ". ";
+                $customPriceNote .= "Standard calculated price would have been: $" . number_format($calculatedTotalCost, 2) . ".";
+                
+                if ($session->notes) {
+                    $session->notes .= "\n\n" . $customPriceNote;
+                } else {
+                    $session->notes = $customPriceNote;
+                }
+            }
         }
     
         // Update play session
@@ -433,7 +517,8 @@ class PlaySessionController extends Controller
             'actual_hours' => $actualHours,
             'amount_paid' => $amountPaidUsd,
             'payment_method' => $paymentMethod,
-            'total_cost' => $totalAmountUsd
+            'total_cost' => $totalAmountUsd, // Use the custom price here
+            'notes' => $session->notes // Updated with custom price notes
         ]);
     
         // Clean up the session data
@@ -458,7 +543,7 @@ class PlaySessionController extends Controller
         $sale = \App\Models\Sale::create([
             'shift_id' => $currentCashierShift->id, // Associate with current cashier's shift
             'user_id' => Auth::id(), // Current user
-            'total_amount' => $totalAmountUsd,
+            'total_amount' => $totalAmountUsd, // Using the custom price set by cashier
             'amount_paid' => $amountPaidUsd,
             'payment_method' => $paymentMethod,
             'child_id' => $session->child_id,
@@ -646,5 +731,49 @@ class PlaySessionController extends Controller
         
         return redirect()->route('cashier.sessions.show', $session)
             ->with('success', 'Products added to the session successfully. They will be included in the final bill.');
+    }
+
+    /**
+     * Remove the specified play session.
+     */
+    public function destroy(PlaySession $session)
+    {
+        // Check if this session has associated sales
+        $hasSales = \App\Models\Sale::where('play_session_id', $session->id)->exists();
+        
+        if ($hasSales) {
+            return redirect()->route('cashier.sessions.show', $session)
+                ->with('error', 'Cannot delete this session because it has associated sales records.');
+        }
+        
+        // Check if there are add-ons
+        if ($session->addOns()->count() > 0) {
+            // Detach all add-ons first
+            $session->addOns()->detach();
+        }
+        
+        // Check for pending sales
+        $pendingSales = \App\Models\Sale::where('play_session_id', $session->id)
+            ->where('status', 'pending')
+            ->get();
+            
+        foreach ($pendingSales as $sale) {
+            // For each sale item, restore product stock
+            foreach ($sale->items as $item) {
+                $item->product->increment('stock_qty', $item->quantity);
+            }
+            
+            // Delete the sale items
+            $sale->items()->delete();
+            
+            // Delete the sale
+            $sale->delete();
+        }
+        
+        // Delete the play session
+        $session->delete();
+        
+        return redirect()->route('cashier.sessions.index')
+            ->with('success', 'Play session deleted successfully. You can now create a new one with the correct information.');
     }
 } 

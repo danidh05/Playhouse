@@ -26,6 +26,7 @@ class ChildRequest extends FormRequest
             'birth_date' => 'required|date',
             'guardian_name' => 'required|string|max:255',
             'guardian_phone' => 'required|string|max:20',
+            'marketing_notes' => 'nullable|string|max:500',
             'notes' => 'nullable|string',
         ];
     }

@@ -35,6 +35,17 @@
             </svg>
             End Session
         </a>
+        
+        <form action="{{ route('cashier.sessions.destroy', $session) }}" method="POST" class="inline" onsubmit="return confirm('Are you sure you want to delete this session? This cannot be undone.');">
+            @csrf
+            @method('DELETE')
+            <button type="submit" class="px-3 py-1 text-xs bg-red-600 text-white rounded flex items-center">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                </svg>
+                Delete Session
+            </button>
+        </form>
         @endif
     </div>
 </div>
@@ -78,11 +89,60 @@
                             <div class="py-2 px-3 bg-gray-50 font-medium text-xs text-gray-600">Guardian</div>
                             <div class="py-2 px-3 col-span-2">{{ $session->child->guardian_name }}</div>
                         </div>
-                        <div class="grid grid-cols-3">
+                        <div class="grid grid-cols-3 border-b">
                             <div class="py-2 px-3 bg-gray-50 font-medium text-xs text-gray-600">Contact</div>
                             <div class="py-2 px-3 col-span-2">{{ $session->child->guardian_phone }}</div>
                         </div>
+                        <div class="grid grid-cols-3">
+                            <div class="py-2 px-3 bg-gray-50 font-medium text-xs text-gray-600">Play Sessions</div>
+                            <div class="py-2 px-3 col-span-2">
+                                <span class="bg-primary-light text-primary px-2 py-1 rounded-full text-sm font-medium">{{ $playSessionsCount }}</span>
+                                <span class="text-xs text-gray-500 ml-1">total sessions</span>
+                            </div>
+                        </div>
                     </div>
+                    
+                    @if(!empty($session->child->marketing_sources))
+                    <div class="mt-3 border rounded-lg overflow-hidden">
+                        <div class="py-2 px-3 bg-gray-50 font-medium text-xs text-gray-600">MARKETING SOURCES</div>
+                        <div class="p-3">
+                            <div class="flex flex-wrap gap-2">
+                                @foreach($session->child->marketing_sources as $source)
+                                    <span class="px-2 py-1 text-xs bg-blue-100 text-blue-800 rounded-full">
+                                        @switch($source)
+                                            @case('facebook')
+                                                Facebook
+                                                @break
+                                            @case('instagram')
+                                                Instagram
+                                                @break
+                                            @case('tiktok')
+                                                TikTok
+                                                @break
+                                            @case('passing_by')
+                                                Saw from outside
+                                                @break
+                                            @case('mascot')
+                                                Mascot outside
+                                                @break
+                                            @case('word_of_mouth')
+                                                Word of mouth
+                                                @break
+                                            @default
+                                                {{ $source }}
+                                        @endswitch
+                                    </span>
+                                @endforeach
+                            </div>
+                            
+                            @if(!empty($session->child->marketing_notes))
+                            <div class="mt-2 text-xs text-gray-600">
+                                <p>{{ $session->child->marketing_notes }}</p>
+                            </div>
+                            @endif
+                        </div>
+                    </div>
+                    @endif
                 </div>
             </div>
             

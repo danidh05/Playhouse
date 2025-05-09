@@ -105,6 +105,7 @@
                             <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Child</th>
                             <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Guardian</th>
                             <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Age</th>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Play Sessions</th>
                             <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Last Visit</th>
                             <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                             </tr>
@@ -131,6 +132,14 @@
                                 <div class="text-sm text-gray-900">{{ $child->birth_date->age }} years</div>
                                 <div class="text-sm text-gray-500">{{ $child->birth_date->format('M d, Y') }}</div>
                                 </td>
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                <div class="text-sm text-gray-900">
+                                    <span class="bg-primary-light text-primary px-2 py-1 rounded-full font-medium">
+                                        {{ $child->play_sessions_count ?? 0 }}
+                                    </span>
+                                </div>
+                                <div class="text-xs text-gray-500 mt-1">Total sessions</div>
+                            </td>
                             <td class="px-6 py-4 whitespace-nowrap">
                                 @if($child->last_visit)
                                 <div class="text-sm text-gray-900">{{ $child->last_visit->format('M d, Y') }}</div>

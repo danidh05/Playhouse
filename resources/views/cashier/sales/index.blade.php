@@ -38,6 +38,10 @@
                     class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
                     Sale for Specific Child
                 </a>
+                <a href="{{ route('cashier.sales.create-addon-only') }}"
+                    class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
+                    Add-on Only Sale
+                </a>
             </div>
         </div>
 
@@ -88,7 +92,12 @@
                         <div class="max-w-xs">
                             @foreach($sale->items as $item)
                             <div class="text-sm mb-1 last:mb-0">
-                                <span class="font-medium">{{ $item->quantity }}x</span> {{ $item->product->name }}
+                                <span class="font-medium">{{ $item->quantity }}x</span> 
+                                @if($item->product_id)
+                                    {{ $item->product->name }}
+                                @elseif($item->add_on_id)
+                                    {{ $item->addOn->name }} <span class="text-xs text-primary">(Add-on)</span>
+                                @endif
                                 <span class="text-xs text-gray-500">
                                     @if($sale->payment_method === 'LBP')
                                         {{ number_format($item->subtotal * config('play.lbp_exchange_rate', 90000)) }} L.L
