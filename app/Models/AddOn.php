@@ -18,6 +18,7 @@ class AddOn extends Model
     protected $fillable = [
         'name',
         'price',
+        'active',
     ];
 
     /**
@@ -27,6 +28,7 @@ class AddOn extends Model
      */
     protected $casts = [
         'price' => 'decimal:2',
+        'active' => 'boolean',
     ];
 
     /**

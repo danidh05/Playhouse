@@ -18,7 +18,9 @@ class Product extends Model
     protected $fillable = [
         'name',
         'price',
+        'price_lbp',
         'stock_qty',
+        'active',
     ];
 
     /**
@@ -28,7 +30,9 @@ class Product extends Model
      */
     protected $casts = [
         'price' => 'decimal:2',
+        'price_lbp' => 'decimal:2',
         'stock_qty' => 'integer',
+        'active' => 'boolean',
     ];
 
     /**

@@ -10,14 +10,75 @@
     </div>
 
     <!-- Session Alerts Section -->
-    @if(count($nearingCompletionSessions) > 0)
+    @if(count($consolidatedAlerts) > 0 && $showAlerts)
     <div class="mb-6">
         <h2 class="text-lg font-bold text-gray-800 mb-3">Session Alerts</h2>
 
-        @foreach($nearingCompletionSessions as $alertSession)
-        <x-session-expiry-alert :session="$alertSession['session']"
-            :minutesRemaining="$alertSession['minutesRemaining']" />
+        @foreach($consolidatedAlerts as $alert)
+            @if(isset($alert['consolidated']) && $alert['consolidated'])
+                <div class="bg-yellow-50 border-l-4 border-yellow-400 p-4 mb-4">
+                    <div class="flex">
+                        <div class="flex-shrink-0">
+                            <svg class="h-5 w-5 text-yellow-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                                <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd" />
+                            </svg>
+                        </div>
+                        <div class="ml-3">
+                            <p class="text-sm text-yellow-700">
+                                <span class="font-medium">Multiple Sessions Alert:</span>
+                                {{ $alert['count'] }} sessions 
+                                @if($alert['type'] == 'planned_ending_soon')
+                                    have <span class="font-medium">{{ $alert['minutesRemaining'] }} minutes</span> or less remaining.
+                                @elseif($alert['type'] == 'one_hour_mark')
+                                    have been running for approximately 1 hour.
+                                @elseif($alert['type'] == 'two_hour_mark')
+                                    have been running for approximately 2 hours.
+                                @endif
+                            </p>
+                            <div class="mt-2">
+                                <a href="{{ route('cashier.sessions.index') }}" 
+                                   class="inline-flex items-center px-3 py-1 border border-transparent text-sm leading-4 font-medium rounded-md text-yellow-700 bg-yellow-100 hover:bg-yellow-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-yellow-500">
+                                    View All Sessions
+                                </a>
+                            </div>
+                            <div class="mt-2 text-xs text-gray-600">
+                                @foreach($alert['sessions'] as $session)
+                                    <div class="inline-block mr-2">
+                                        <a href="{{ route('cashier.sessions.show-end', $session->id) }}" class="underline">{{ $session->child->name }}</a>,
+                                    </div>
+                                @endforeach
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            @else
+                <x-session-expiry-alert :session="$alert['session']" :minutesRemaining="$alert['minutesRemaining']" />
+            @endif
         @endforeach
+    </div>
+    @endif
+
+    <!-- Manage Old Sessions Banner -->
+    @if(count($consolidatedAlerts) > 0 && !$showAlerts)
+    <div class="bg-blue-50 border-l-4 border-blue-400 p-4 mb-6">
+        <div class="flex">
+            <div class="flex-shrink-0">
+                <svg class="h-5 w-5 text-blue-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                    <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2h-1V9a1 1 0 00-1-1z" clip-rule="evenodd"/>
+                </svg>
+            </div>
+            <div class="ml-3">
+                <p class="text-sm text-blue-700">
+                    There are active sessions that may need attention. 
+                    <a href="{{ route('cashier.sessions.index') }}" class="font-medium underline text-blue-700 hover:text-blue-600 mr-2">
+                        View all active sessions
+                    </a> or 
+                    <a href="{{ route('cashier.sessions.show-close-old') }}" class="font-medium underline text-yellow-600 hover:text-yellow-700">
+                        Close old sessions
+                    </a>
+                </p>
+            </div>
+        </div>
     </div>
     @endif
 

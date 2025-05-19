@@ -11,13 +11,14 @@ use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Session;
 
 class DashboardController extends Controller
 {
     /**
      * Display the cashier dashboard.
      */
-    public function index()
+    public function index(Request $request)
     {
         // Get today's date with start and end times
         $today = Carbon::today();
@@ -50,7 +51,12 @@ class DashboardController extends Controller
             ->orderBy('started_at')
             ->get();
             
-        $nearingCompletionSessions = [];
+        // Group sessions by alert thresholds
+        $groupedAlerts = [
+            'planned_ending_soon' => [], // For sessions with planned hours ending within 15 minutes
+            'one_hour_mark' => [],       // For sessions at 55-60 minute mark
+            'two_hour_mark' => [],       // For sessions at 115-120 minute mark
+        ];
         
         foreach ($activeSessions as $session) {
             $duration = $session->started_at->diffAsCarbonInterval(now())->cascade();
@@ -63,7 +69,7 @@ class DashboardController extends Controller
                 
                 // Add to nearing completion if less than 15 minutes remaining
                 if ($minutesRemaining > 0 && $minutesRemaining <= 15) {
-                    $nearingCompletionSessions[] = [
+                    $groupedAlerts['planned_ending_soon'][] = [
                         'session' => $session,
                         'minutesRemaining' => $minutesRemaining,
                     ];
@@ -73,21 +79,142 @@ class DashboardController extends Controller
             else {
                 // Alert at 55-60 minutes mark
                 if ($minutesElapsed >= 55 && $minutesElapsed <= 60) {
-                    $nearingCompletionSessions[] = [
+                    $groupedAlerts['one_hour_mark'][] = [
                         'session' => $session,
                         'minutesRemaining' => $minutesElapsed,
                     ];
                 }
                 // Also alert at 115-120 minutes mark (near 2 hours)
                 else if ($minutesElapsed >= 115 && $minutesElapsed <= 120) {
-                    $nearingCompletionSessions[] = [
+                    $groupedAlerts['two_hour_mark'][] = [
                         'session' => $session,
                         'minutesRemaining' => $minutesElapsed,
                     ];
                 }
             }
         }
-
+        
+        // Convert grouped alerts to consolidated alerts for the view
+        $consolidatedAlerts = [];
+        
+        // Check if alerts have been shown already this session
+        $alertsShownKey = 'alerts_shown';
+        $alertsShown = $request->session()->get($alertsShownKey, []);
+        $currentTime = now()->timestamp;
+        $showAlerts = false;
+        
+        // If it's been more than 30 minutes since alerts were shown, or they haven't been shown yet
+        if (!isset($alertsShown['timestamp']) || ($currentTime - $alertsShown['timestamp']) > 1800) {
+            $showAlerts = true;
+            
+            // Get session IDs that have been alerted about already
+            $alertedSessionIds = $alertsShown['session_ids'] ?? [];
+            
+            // Process planned hours ending soon
+            if (!empty($groupedAlerts['planned_ending_soon'])) {
+                // Filter out sessions that have already been alerted about
+                $newAlerts = array_filter($groupedAlerts['planned_ending_soon'], function($alert) use ($alertedSessionIds) {
+                    return !in_array($alert['session']->id, $alertedSessionIds);
+                });
+                
+                if (!empty($newAlerts)) {
+                    $sessionsCount = count($newAlerts);
+                    if ($sessionsCount === 1) {
+                        // If only one session, show individual alert
+                        $consolidatedAlerts[] = reset($newAlerts);
+                    } else {
+                        // If multiple sessions, create a consolidated alert
+                        $firstSession = reset($newAlerts)['session'];
+                        $consolidatedAlerts[] = [
+                            'consolidated' => true,
+                            'type' => 'planned_ending_soon',
+                            'count' => $sessionsCount,
+                            'session' => $firstSession, // Use first session for routing
+                            'sessions' => array_column($newAlerts, 'session'),
+                            'minutesRemaining' => min(array_column($newAlerts, 'minutesRemaining')),
+                        ];
+                    }
+                    
+                    // Add these session IDs to the alerted list
+                    foreach ($newAlerts as $alert) {
+                        $alertedSessionIds[] = $alert['session']->id;
+                    }
+                }
+            }
+            
+            // Process one hour mark
+            if (!empty($groupedAlerts['one_hour_mark'])) {
+                // Filter out sessions that have already been alerted about
+                $newAlerts = array_filter($groupedAlerts['one_hour_mark'], function($alert) use ($alertedSessionIds) {
+                    return !in_array($alert['session']->id, $alertedSessionIds);
+                });
+                
+                if (!empty($newAlerts)) {
+                    $sessionsCount = count($newAlerts);
+                    if ($sessionsCount === 1) {
+                        // If only one session, show individual alert
+                        $consolidatedAlerts[] = reset($newAlerts);
+                    } else {
+                        // If multiple sessions, create a consolidated alert
+                        $firstSession = reset($newAlerts)['session'];
+                        $consolidatedAlerts[] = [
+                            'consolidated' => true,
+                            'type' => 'one_hour_mark',
+                            'count' => $sessionsCount,
+                            'session' => $firstSession, // Use first session for routing
+                            'sessions' => array_column($newAlerts, 'session'),
+                            'minutesRemaining' => 60,
+                        ];
+                    }
+                    
+                    // Add these session IDs to the alerted list
+                    foreach ($newAlerts as $alert) {
+                        $alertedSessionIds[] = $alert['session']->id;
+                    }
+                }
+            }
+            
+            // Process two hour mark
+            if (!empty($groupedAlerts['two_hour_mark'])) {
+                // Filter out sessions that have already been alerted about
+                $newAlerts = array_filter($groupedAlerts['two_hour_mark'], function($alert) use ($alertedSessionIds) {
+                    return !in_array($alert['session']->id, $alertedSessionIds);
+                });
+                
+                if (!empty($newAlerts)) {
+                    $sessionsCount = count($newAlerts);
+                    if ($sessionsCount === 1) {
+                        // If only one session, show individual alert
+                        $consolidatedAlerts[] = reset($newAlerts);
+                    } else {
+                        // If multiple sessions, create a consolidated alert
+                        $firstSession = reset($newAlerts)['session'];
+                        $consolidatedAlerts[] = [
+                            'consolidated' => true,
+                            'type' => 'two_hour_mark',
+                            'count' => $sessionsCount,
+                            'session' => $firstSession, // Use first session for routing
+                            'sessions' => array_column($newAlerts, 'session'),
+                            'minutesRemaining' => 120,
+                        ];
+                    }
+                    
+                    // Add these session IDs to the alerted list
+                    foreach ($newAlerts as $alert) {
+                        $alertedSessionIds[] = $alert['session']->id;
+                    }
+                }
+            }
+            
+            // Update the session with the new timestamp and alerted session IDs
+            if (!empty($consolidatedAlerts)) {
+                $request->session()->put($alertsShownKey, [
+                    'timestamp' => $currentTime,
+                    'session_ids' => $alertedSessionIds
+                ]);
+            }
+        }
+        
         // Get Recent Activities (combining sessions, sales and complaints)
         $recentActivities = $this->getRecentActivities();
 
@@ -105,7 +232,8 @@ class DashboardController extends Controller
             'complaintsGrowth', 
             'recentActivities', 
             'activeShift',
-            'nearingCompletionSessions'
+            'consolidatedAlerts',
+            'showAlerts'
         ));
     }
 

@@ -59,7 +59,9 @@ class SalesController extends Controller
      */
     public function create(Request $request)
     {
-        $products = Product::where('stock_qty', '>', 0)->get();
+        $products = Product::where('stock_qty', '>', 0)
+                          ->where('active', true)
+                          ->get();
         
         // Find active shift
         $activeShift = Shift::where('cashier_id', Auth::id())
@@ -92,113 +94,108 @@ class SalesController extends Controller
     }
 
     /**
-     * Store a newly created sale in storage.
+     * Store a newly created resource in storage.
      */
     public function store(Request $request)
     {
-        return DB::transaction(function () use ($request) {
-            // Find active shift
-            $shift = Shift::where('cashier_id', Auth::id())
-                         ->whereNull('closed_at')
-                         ->first();
-            
-            if (!$shift) {
-                // Create a new shift for the cashier if none exists
-                $shift = new Shift();
-                $shift->cashier_id = Auth::id();
-                $shift->opened_at = now();
-                $shift->save();
-            }
-            
-            // Decode the products from the JSON string
-            $productsData = json_decode($request->products, true);
-            
-            if (empty($productsData)) {
-                return redirect()->back()->with('error', 'No products selected.');
-            }
-            
-            // Get customer details
-            $childId = $request->child_id ?? null;
-            $playSessionId = $request->play_session_id ?? null;
-            
-            // Set payment method and handle amount calculations
-            $paymentMethod = $request->payment_method;
-            $lbpRate = config('play.lbp_exchange_rate', 90000);
+        $request->validate([
+            'items' => 'required|array',
+            'items.*.id' => 'required|exists:products,id',
+            'items.*.qty' => 'required|integer|min:1',
+            'items.*.price' => 'required|numeric|min:0',
+            'payment_method' => 'required|in:cash,card',
+            'shift_id' => 'required|exists:shifts,id',
+            'amount_paid' => 'required|numeric|min:0',
+            'currency' => 'required|in:usd,lbp',
+        ]);
 
-            // Get the play session if it exists
-            $playSession = null;
-            if ($playSessionId) {
-                $playSession = \App\Models\PlaySession::find($playSessionId);
+        $items = $request->items;
+        $totalAmount = 0;
+        $currency = $request->currency;
+        
+        // Start database transaction
+        DB::beginTransaction();
+        
+        try {
+            // Create the sale record
+            $sale = new Sale([
+                'user_id' => Auth::id(),
+                'shift_id' => $request->shift_id,
+                'payment_method' => $request->payment_method,
+                'amount_paid' => $request->amount_paid,
+                'status' => 'completed',
+                'currency' => $currency,
+            ]);
+            
+            if ($request->has('child_id') && !empty($request->child_id)) {
+                $sale->child_id = $request->child_id;
             }
             
-            // Calculate total amount in USD
-            if ($paymentMethod === 'LBP') {
-                // Get the raw LBP amounts
-                $amountPaidLBP = $request->amount_paid;
+            // Process items
+            foreach ($items as $id => $item) {
+                $product = Product::findOrFail($id);
                 
-                // If there's a play session, use its total
-                if ($playSession) {
-                    $totalAmountLBP = $playSession->total_cost * $lbpRate;
-                } else {
-                    $totalAmountLBP = $request->total_amount_lbp;
+                // If we don't have enough stock, abort the transaction
+                if ($product->stock_qty < $item['qty']) {
+                    DB::rollBack();
+                    
+                    if ($request->ajax()) {
+                        return response()->json([
+                            'success' => false,
+                            'message' => "Not enough stock for {$product->name}"
+                        ], 422);
+                    }
+                    
+                    return redirect()->back()->with('error', "Not enough stock for {$product->name}");
                 }
                 
-                // Convert to USD for storage
-                $totalAmount = round($totalAmountLBP / $lbpRate, 2);
-                // Convert amount paid from LBP to USD
-                $amountPaid = round($amountPaidLBP / $lbpRate, 2);
-            } else {
-                // For USD payments
-                $amountPaid = round($request->amount_paid, 2);
+                $itemTotal = $item['price'] * $item['qty'];
+                $totalAmount += $itemTotal;
                 
-                // If there's a play session, use its total
-                if ($playSession) {
-                    $totalAmount = round($playSession->total_cost, 2);
-                } else {
-                    $totalAmount = round($request->total_amount, 2);
-                }
+                // Reduce stock
+                $product->decrement('stock_qty', $item['qty']);
             }
             
-            // Create the sale
-            $sale = new Sale();
-            $sale->shift_id = $shift->id;
-            $sale->user_id = Auth::id();
+            // Set total amount and save the sale
             $sale->total_amount = $totalAmount;
-            $sale->amount_paid = $amountPaid;
-            $sale->payment_method = $paymentMethod;
-            
-            $sale->child_id = $childId;
-            $sale->play_session_id = $playSessionId;
             $sale->save();
             
-            // Process each product
-            foreach ($productsData as $productData) {
-                // Lock the product row for update to prevent race conditions
-                $product = Product::where('id', $productData['id'])->lockForUpdate()->firstOrFail();
-                
-                if ($product->stock_qty < $productData['quantity']) {
-                    // If we don't have enough stock, rollback the transaction
-                    DB::rollBack();
-                    return redirect()->back()->with('error', "Not enough stock available for {$product->name}");
-                }
-                
-                // Create the sale item
-                $saleItem = new SaleItem();
-                $saleItem->sale_id = $sale->id;
-                $saleItem->product_id = $product->id;
-                $saleItem->quantity = $productData['quantity'];
-                $saleItem->unit_price = $product->price;
-                $saleItem->subtotal = $product->price * $productData['quantity'];
-                $saleItem->save();
-                
-                // Update the stock quantity
-                $product->update([
-                    'stock_qty' => $product->stock_qty - $productData['quantity']
+            // Create sale items
+            foreach ($items as $id => $item) {
+                SaleItem::create([
+                    'sale_id' => $sale->id,
+                    'product_id' => $id,
+                    'quantity' => $item['qty'],
+                    'unit_price' => $item['price'],
+                    'subtotal' => $item['price'] * $item['qty'],
                 ]);
             }
             
-            return redirect()->route('cashier.sales.show', $sale)->with('success', 'Sale completed successfully');
-        });
+            DB::commit();
+            
+            if ($request->ajax()) {
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Sale completed successfully',
+                    'sale_id' => $sale->id,
+                    'redirect' => route('cashier.sales.show', $sale->id)
+                ]);
+            }
+            
+            return redirect()->route('cashier.sales.show', $sale->id)
+                ->with('success', 'Sale completed successfully');
+        } catch (\Exception $e) {
+            DB::rollBack();
+            
+            if ($request->ajax()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Failed to process the sale: ' . $e->getMessage()
+                ], 500);
+            }
+            
+            return redirect()->back()->with('error', 'Failed to process the sale: ' . $e->getMessage());
+        }
     }
 
     /**
@@ -280,6 +277,7 @@ class SalesController extends Controller
         
         return response()->json([
             'price' => $product->price,
+            'price_lbp' => $product->price_lbp,
             'stock' => $product->stock_qty
         ]);
     }
@@ -407,7 +405,7 @@ class SalesController extends Controller
     public function createAddOnOnly(Request $request)
     {
         // Get all available add-ons
-        $addOns = \App\Models\AddOn::all();
+        $addOns = \App\Models\AddOn::where('active', true)->get();
         
         // Find active shift
         $activeShift = Shift::where('cashier_id', Auth::id())

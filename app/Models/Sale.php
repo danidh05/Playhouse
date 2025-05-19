@@ -22,6 +22,7 @@ class Sale extends Model
         'total_amount',
         'amount_paid',
         'payment_method',
+        'currency',
         'child_id',
         'play_session_id',
         'status',

@@ -40,23 +40,19 @@
                         
                         <div class="divide-y divide-gray-200" id="products-container">
                             @foreach($products as $product)
-                            <div class="grid grid-cols-3 items-center px-4 py-3 product-row" data-product-id="{{ $product->id }}" data-product-name="{{ $product->name }}" data-product-price="{{ $product->price }}" data-stock="{{ $product->stock_qty }}">
+                            <div class="grid grid-cols-3 items-center px-4 py-3 product-row" data-product-id="{{ $product->id }}" data-product-name="{{ $product->name }}" data-product-price="{{ $product->price }}" data-product-price-lbp="{{ $product->price_lbp }}" data-stock="{{ $product->stock_qty }}">
                                 <div class="font-medium">{{ $product->name }}</div>
-                                <div>${{ number_format($product->price, 2) }}</div>
                                 <div>
-                                    <div class="flex items-center">
-                                        <button type="button" class="quantity-btn minus bg-gray-200 p-1 rounded-l" data-action="minus">
-                                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 12H4" />
-                                            </svg>
-                                        </button>
-                                        <input type="number" class="quantity-input w-12 text-center border-t border-b border-gray-300 py-1" min="0" max="{{ $product->stock_qty }}" value="0" readonly>
-                                        <button type="button" class="quantity-btn plus bg-blue-500 p-1 rounded-r text-white" data-action="plus">
-                                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-                                            </svg>
-                                        </button>
-                                    </div>
+                                    <div>${{ number_format($product->price, 2) }}</div>
+                                    <div class="text-gray-500 text-sm">{{ number_format($product->price_lbp, 0) }} LBP</div>
+                                </div>
+                                <div class="flex items-center">
+                                    <select name="products[{{ $product->id }}][qty]" class="product-qty form-select rounded-md shadow-sm border-gray-300 focus:border-blue-300 focus:ring focus:ring-blue-200 focus:ring-opacity-50 w-24" data-product-id="{{ $product->id }}">
+                                        <option value="0">0</option>
+                                        @for ($i = 1; $i <= min(10, $product->stock_qty); $i++)
+                                            <option value="{{ $i }}">{{ $i }}</option>
+                                        @endfor
+                                    </select>
                                 </div>
                             </div>
                             @endforeach

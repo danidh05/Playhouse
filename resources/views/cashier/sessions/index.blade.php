@@ -4,28 +4,18 @@
 
 @section('content')
 <div class="p-6">
-    <div class="mb-6 flex justify-between items-center">
+    <div class="flex justify-between items-center mb-6">
         <div>
             <h1 class="text-2xl font-bold text-gray-800">Play Sessions</h1>
-            <p class="text-gray-600">Manage active and past play sessions</p>
+            <p class="text-gray-600">Manage active and recent play sessions</p>
         </div>
-        <div class="flex space-x-2">
-            @if(app()->environment('local'))
-            <a href="{{ route('test.session-capping') }}"
-                class="px-4 py-2 bg-yellow-500 text-white rounded-md hover:bg-yellow-600 flex items-center">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24"
-                    stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-                Test Time Capping
+        <div class="flex space-x-4">
+            <a href="{{ route('cashier.sessions.show-close-old') }}" 
+               class="px-4 py-2 bg-yellow-600 text-white rounded hover:bg-yellow-700">
+                Close Old Sessions
             </a>
-            @endif
-            <a href="{{ route('cashier.sessions.create') }}"
-                class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 flex items-center">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24"
-                    stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
-                </svg>
+            <a href="{{ route('cashier.sessions.create') }}" 
+               class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">
                 Start New Session
             </a>
         </div>

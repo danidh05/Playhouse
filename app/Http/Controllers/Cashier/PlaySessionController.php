@@ -12,6 +12,7 @@ use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Validation\Rule;
+use Illuminate\Support\Facades\DB;
 
 class PlaySessionController extends Controller
 {
@@ -315,7 +316,7 @@ class PlaySessionController extends Controller
         ]);
 
         // Get add-ons and their total - this can change between requests
-        $addOns = AddOn::all();
+        $addOns = AddOn::where('active', true)->get();
         $sessionAddOns = $session->addOns()->get();
         $addonsTotal = $sessionAddOns->sum('pivot.subtotal');
         
@@ -620,7 +621,7 @@ class PlaySessionController extends Controller
                 ->with('error', 'Cannot modify add-ons for a completed session');
         }
 
-        $addOns = AddOn::all();
+        $addOns = AddOn::where('active', true)->get();
         $sessionAddOns = $session->addOns()->get();
         return view('cashier.sessions.addons', compact('session', 'addOns', 'sessionAddOns'));
     }
@@ -636,7 +637,9 @@ class PlaySessionController extends Controller
         }
         
         // Get all products with stock
-        $products = \App\Models\Product::where('stock_qty', '>', 0)->get();
+        $products = \App\Models\Product::where('stock_qty', '>', 0)
+                                      ->where('active', true)
+                                      ->get();
         
         // Get existing pending sales for this session
         $pendingSales = \App\Models\Sale::where('play_session_id', $session->id)
@@ -775,5 +778,124 @@ class PlaySessionController extends Controller
         
         return redirect()->route('cashier.sessions.index')
             ->with('success', 'Play session deleted successfully. You can now create a new one with the correct information.');
+    }
+
+    /**
+     * Show the form for bulk closing old sessions.
+     */
+    public function showCloseOldSessions()
+    {
+        // Get all unclosed sessions that are older than 24 hours
+        $oldSessions = PlaySession::with(['child', 'user'])
+            ->whereNull('ended_at')
+            ->where('started_at', '<', now()->subHours(24))
+            ->orderBy('started_at')
+            ->get();
+
+        return view('cashier.sessions.close-old', compact('oldSessions'));
+    }
+
+    /**
+     * Bulk close multiple sessions.
+     */
+    public function bulkCloseSessions(Request $request)
+    {
+        $request->validate([
+            'sessions' => 'required|array',
+            'sessions.*' => 'exists:play_sessions,id',
+            'payment_method' => ['required', Rule::in(config('play.payment_methods', []))],
+        ]);
+
+        $successCount = 0;
+        $errorCount = 0;
+        $hourlyRate = config('play.hourly_rate', 10.00);
+
+        foreach ($request->sessions as $sessionId) {
+            $session = PlaySession::find($sessionId);
+            
+            if (!$session || $session->ended_at) {
+                $errorCount++;
+                continue;
+            }
+
+            try {
+                DB::beginTransaction();
+
+                // Calculate actual hours
+                $startTime = Carbon::parse($session->started_at);
+                $endTime = $session->started_at->addHours($session->planned_hours ?? 1);
+                $actualHours = max(0, $endTime->diffInMinutes($startTime) / 60);
+
+                // Cap at planned hours if specified
+                if ($session->planned_hours && $actualHours > $session->planned_hours) {
+                    $actualHours = $session->planned_hours;
+                }
+
+                // Calculate total cost
+                $totalCost = $actualHours * $hourlyRate;
+                if ($session->discount_pct > 0) {
+                    $totalCost = $totalCost * ((100 - $session->discount_pct) / 100);
+                }
+
+                // Add note about automatic closure
+                $note = "Session automatically closed due to being inactive. Original duration: " . 
+                        number_format($actualHours, 2) . " hours.";
+                if ($session->notes) {
+                    $session->notes .= "\n\n" . $note;
+                } else {
+                    $session->notes = $note;
+                }
+
+                // Update session
+                $session->update([
+                    'ended_at' => $endTime,
+                    'actual_hours' => $actualHours,
+                    'amount_paid' => $totalCost,
+                    'payment_method' => $request->payment_method,
+                    'total_cost' => $totalCost,
+                ]);
+
+                // Get the current cashier's active shift
+                $currentCashierShift = Shift::where('cashier_id', Auth::id())
+                    ->whereNull('closed_at')
+                    ->first();
+
+                if (!$currentCashierShift) {
+                    $currentCashierShift = Shift::create([
+                        'cashier_id' => Auth::id(),
+                        'date' => now()->toDateString(),
+                        'type' => (now()->hour < 12) ? 'morning' : 'afternoon',
+                        'opened_at' => now(),
+                    ]);
+                }
+
+                // Create sale record
+                \App\Models\Sale::create([
+                    'shift_id' => $currentCashierShift->id,
+                    'user_id' => Auth::id(),
+                    'total_amount' => $totalCost,
+                    'amount_paid' => $totalCost,
+                    'payment_method' => $request->payment_method,
+                    'child_id' => $session->child_id,
+                    'play_session_id' => $session->id,
+                    'status' => 'completed',
+                    'notes' => 'Automatically closed session'
+                ]);
+
+                DB::commit();
+                $successCount++;
+            } catch (\Exception $e) {
+                DB::rollBack();
+                $errorCount++;
+            }
+        }
+
+        $message = "Successfully closed {$successCount} sessions.";
+        if ($errorCount > 0) {
+            $message .= " Failed to close {$errorCount} sessions.";
+        }
+
+        return redirect()->route('cashier.sessions.index')
+            ->with('success', $message);
     }
 } 

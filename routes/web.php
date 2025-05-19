@@ -100,6 +100,10 @@ Route::prefix('cashier')->name('cashier.')->middleware(['auth', 'role:cashier'])
         Route::post('/sessions/{session}/add-products', [PlaySessionController::class, 'storeProducts'])->name('sessions.store-products');
         Route::delete('/sessions/{session}', [PlaySessionController::class, 'destroy'])->name('sessions.destroy');
         
+        // Bulk session management routes
+        Route::get('/sessions/bulk/close-old', [PlaySessionController::class, 'showCloseOldSessions'])->name('sessions.show-close-old');
+        Route::post('/sessions/bulk/close', [PlaySessionController::class, 'bulkCloseSessions'])->name('sessions.bulk-close');
+        
         // Sales routes
         Route::get('/sales', [SalesController::class, 'index'])->name('sales.index');
         Route::get('/sales/list', [SalesController::class, 'list'])->name('sales.list');

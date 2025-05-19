@@ -344,6 +344,12 @@
                     </p>
                 </div>
                 <div>
+                    <p class="text-sm text-gray-500">Currency:</p>
+                    <p class="font-medium">
+                        {{ strtoupper($sale->currency ?? 'USD') }}
+                    </p>
+                </div>
+                <div>
                     <p class="text-sm text-gray-500">Amount Paid:</p>
                     <p class="font-medium">
                         @if($sale->payment_method === 'LBP')

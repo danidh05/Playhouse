@@ -13,9 +13,16 @@ class ProductController extends Controller
     /**
      * Display a listing of the resource.
      */
-    public function index()
+    public function index(Request $request)
     {
-        $products = Product::latest()->paginate(10);
+        $query = Product::latest();
+        
+        // Only show active products by default
+        if (!$request->has('show_discontinued')) {
+            $query->where('active', true);
+        }
+        
+        $products = $query->paginate(10);
         return view('admin.products.index', compact('products'));
     }
 
@@ -67,16 +74,27 @@ class ProductController extends Controller
     public function destroy(Product $product)
     {
         try {
-            // Check if the product has associated purchases
-            if (method_exists($product, 'purchases') && Schema::hasTable('purchases') && $product->purchases()->exists()) {
+            // Check if the product has associated sale items
+            if (\App\Models\SaleItem::where('product_id', $product->id)->exists()) {
+                // Instead of deleting, we could mark it as inactive or disable it
+                $product->update([
+                    'active' => false,
+                    'stock_qty' => 0,
+                    'name' => "[DISCONTINUED] " . $product->name
+                ]);
+                
                 return redirect()->route('admin.products.index')
-                    ->with('error', 'Cannot delete product with associated purchases');
+                    ->with('warning', 'Product has been marked as discontinued because it is used in previous sales. It can no longer be purchased but sales history is preserved.');
             }
+            
+            // If no sale items reference this product, we can safely delete it
+            $product->delete();
+            return redirect()->route('admin.products.index')
+                ->with('success', 'Product deleted successfully');
+                
         } catch (\Exception $e) {
-            // If there's an error (e.g., table doesn't exist), proceed with deletion
+            return redirect()->route('admin.products.index')
+                ->with('error', 'Failed to delete product: ' . $e->getMessage());
         }
-        
-        $product->delete();
-        return redirect()->route('admin.products.index')->with('success', 'Product deleted successfully');
     }
 }
