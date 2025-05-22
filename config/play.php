@@ -14,7 +14,7 @@ return [
     /**
      * Base hourly rate for play sessions.
      */
-    'hourly_rate' => 10.00,
+    'hourly_rate' => 3.00,
 
     /**
      * LBP to USD exchange rate

@@ -14,6 +14,23 @@
     </div>
     @endif
 
+    @if(session('error'))
+    <div class="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 mb-6" role="alert">
+        <p>{{ session('error') }}</p>
+    </div>
+    @endif
+
+    @if($errors->any())
+    <div class="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 mb-6" role="alert">
+        <p class="font-bold">Please fix the following errors:</p>
+        <ul class="mt-2 list-disc list-inside">
+            @foreach($errors->all() as $error)
+                <li>{{ $error }}</li>
+            @endforeach
+        </ul>
+    </div>
+    @endif
+
     <div class="bg-white rounded-lg shadow-md overflow-hidden">
         <form action="{{ route('admin.settings.update') }}" method="POST">
             @csrf
@@ -31,12 +48,15 @@
                             <span class="text-gray-500 sm:text-sm">$</span>
                         </div>
                         <input type="number" name="hourly_rate" id="hourly_rate" step="0.01" min="0" 
-                            class="focus:ring-indigo-500 focus:border-indigo-500 block w-full pl-7 pr-12 sm:text-sm border-gray-300 rounded-md py-2 px-3 border"
-                            value="{{ $settings['hourly_rate'] }}" required>
+                            class="focus:ring-indigo-500 focus:border-indigo-500 block w-full pl-7 pr-12 sm:text-sm border-gray-300 rounded-md py-2 px-3 border @error('hourly_rate') border-red-500 @enderror"
+                            value="{{ old('hourly_rate', $settings['hourly_rate']) }}" required>
                     </div>
                     <p class="mt-2 text-sm text-gray-500">
                         This is the base rate charged per hour for play sessions.
                     </p>
+                    @error('hourly_rate')
+                        <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
+                    @enderror
                 </div>
                 
                 <div class="mb-6">
@@ -45,12 +65,15 @@
                     </label>
                     <div class="mt-1 relative rounded-md shadow-sm">
                         <input type="number" name="lbp_exchange_rate" id="lbp_exchange_rate" min="1" 
-                            class="focus:ring-indigo-500 focus:border-indigo-500 block w-full sm:text-sm border-gray-300 rounded-md py-2 px-3 border"
-                            value="{{ $settings['lbp_exchange_rate'] }}" required>
+                            class="focus:ring-indigo-500 focus:border-indigo-500 block w-full sm:text-sm border-gray-300 rounded-md py-2 px-3 border @error('lbp_exchange_rate') border-red-500 @enderror"
+                            value="{{ old('lbp_exchange_rate', $settings['lbp_exchange_rate']) }}" required>
                     </div>
                     <p class="mt-2 text-sm text-gray-500">
                         The exchange rate for Lebanese Pounds (LBP) to USD (e.g., 90000 means 90,000 LBP = 1 USD).
                     </p>
+                    @error('lbp_exchange_rate')
+                        <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
+                    @enderror
                 </div>
             </div>
             

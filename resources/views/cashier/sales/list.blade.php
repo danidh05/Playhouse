@@ -142,6 +142,55 @@
                 </thead>
                 <tbody class="bg-white divide-y divide-gray-200">
                     @forelse($sales as $sale)
+                    @php
+                        // Calculate the correct total amount similar to the show view
+                        $lbpRate = config('play.lbp_exchange_rate', 90000);
+                        $multiplier = $sale->payment_method === 'LBP' ? $lbpRate : 1;
+                        $baseTotal = $sale->total_amount;
+                        
+                        // Add child sales totals if any
+                        $childSalesTotal = 0;
+                        if ($sale->child_sales && $sale->child_sales->count() > 0) {
+                            $childSalesTotal = $sale->child_sales->sum('total_amount');
+                        }
+                        
+                        // Check for custom pricing in play session notes
+                        $hasCustomPrice = false;
+                        $customPriceForTotals = 0;
+                        
+                        if ($sale->play_session && $sale->play_session->notes && strpos($sale->play_session->notes, 'Manual price set by cashier') !== false) {
+                            $hasCustomPrice = true;
+                            $notes = explode("\n\n", $sale->play_session->notes);
+                            
+                            foreach ($notes as $note) {
+                                if (strpos($note, 'Manual price set by cashier') !== false) {
+                                    if ($sale->payment_method === 'LBP') {
+                                        preg_match('/Manual price set by cashier: (.*?) LBP\./', $note, $matches);
+                                    } else {
+                                        preg_match('/Manual price set by cashier: \$(.*?)\./', $note, $matches);
+                                    }
+                                    
+                                    if (isset($matches[1])) {
+                                        // Clean up the number (remove commas)
+                                        $customPriceNumeric = str_replace(',', '', $matches[1]);
+                                        $customPriceForTotals = (float)$customPriceNumeric;
+                                        
+                                        // For USD, no conversion needed
+                                        if ($sale->payment_method === 'LBP') {
+                                            // For display in the total column, we'll keep it in LBP
+                                            $displayTotal = $customPriceForTotals;
+                                        } else {
+                                            $displayTotal = $customPriceForTotals;
+                                        }
+                                    }
+                                    break;
+                                }
+                            }
+                        } else {
+                            // Standard calculation
+                            $displayTotal = ($baseTotal + $childSalesTotal) * $multiplier;
+                        }
+                    @endphp
                     <tr class="hover:bg-gray-50">
                         <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">#{{ $sale->id }}</td>
                         <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
@@ -185,10 +234,19 @@
                             </span>
                         </td>
                         <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                            @if($sale->payment_method === 'LBP')
-                                {{ number_format($sale->total_amount) }} L.L
+                            @if($hasCustomPrice)
+                                @if($sale->payment_method === 'LBP')
+                                    {{ number_format($displayTotal) }} L.L
+                                @else
+                                    ${{ number_format($displayTotal, 2) }}
+                                @endif
+                                <div class="text-xs text-blue-600 font-normal">(Custom)</div>
                             @else
-                                ${{ number_format($sale->total_amount, 2) }}
+                                @if($sale->payment_method === 'LBP')
+                                    {{ number_format($displayTotal) }} L.L
+                                @else
+                                    ${{ number_format($displayTotal, 2) }}
+                                @endif
                             @endif
                         </td>
                         <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600">

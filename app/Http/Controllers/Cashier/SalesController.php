@@ -27,7 +27,9 @@ class SalesController extends Controller
         $salesQuery = Sale::with([
                 'items.product', 
                 'child',
-                'play_session'
+                'play_session.addOns',
+                'child_sales',
+                'child_sales.items.product'
             ])
             ->orderBy('created_at', 'desc');
         
@@ -293,7 +295,9 @@ class SalesController extends Controller
         $salesQuery = Sale::with([
                 'items.product', 
                 'child',
-                'play_session',
+                'play_session.addOns',
+                'child_sales',
+                'child_sales.items.product',
                 'user',
                 'shift'
             ])
@@ -323,7 +327,19 @@ class SalesController extends Controller
         
         // Get statistical data
         $todaySalesCount = Sale::whereDate('created_at', today())->count();
-        $todayRevenue = Sale::whereDate('created_at', today())->sum('total_amount');
+        
+        // Calculate today's revenue including child sales
+        $todaySales = Sale::with('child_sales')
+            ->whereDate('created_at', today())
+            ->get();
+        
+        $todayRevenue = 0;
+        foreach ($todaySales as $sale) {
+            $baseAmount = $sale->total_amount;
+            $childSalesAmount = $sale->child_sales->sum('total_amount');
+            $todayRevenue += ($baseAmount + $childSalesAmount);
+        }
+        
         $productsSoldCount = SaleItem::whereHas('sale', function($query) {
             $query->whereDate('created_at', today());
         })->sum('quantity');

@@ -857,7 +857,9 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Filter children based on search
     if (document.getElementById('child-search')) {
-        document.getElementById('child-search').addEventListener('input', function() {
+        document.getElemen
+
+        tById('child-search').addEventListener('input', function() {
             const searchText = this.value.toLowerCase();
             document.querySelectorAll('.child-item').forEach(item => {
                 const childName = item.querySelector('.font-medium').textContent.toLowerCase();
