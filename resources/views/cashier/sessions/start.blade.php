@@ -26,6 +26,9 @@
             <div class="ml-3">
                 <p class="text-sm text-green-700">
                     Starting a play session for <strong>{{ $child->name }}</strong>
+                    <span class="bg-primary-light text-primary px-2 py-1 rounded-full text-sm font-medium ml-2">
+                        {{ $child->play_sessions_count ?? 0 }} sessions
+                    </span>
                 </p>
             </div>
         </div>
