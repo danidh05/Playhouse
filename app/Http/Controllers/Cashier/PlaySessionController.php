@@ -44,9 +44,9 @@ class PlaySessionController extends Controller
             // 'all' doesn't need any filter
         }
         
-        $recentSessions = $recentSessionsQuery->paginate(10);
+        $recentSessions = $recentSessionsQuery->paginate(10)->withQueryString();
         
-        return view('cashier.sessions.index', compact('activeSessions', 'recentSessions'));
+        return view('cashier.sessions.index', compact('activeSessions', 'recentSessions', 'filter'));
     }
 
     /**

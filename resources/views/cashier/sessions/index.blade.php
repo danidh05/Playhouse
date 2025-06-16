@@ -72,6 +72,9 @@
                                 Duration</th>
                             <th scope="col"
                                 class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                Amount</th>
+                            <th scope="col"
+                                class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                                 Actions</th>
                         </tr>
                     </thead>
@@ -128,6 +131,21 @@
                                         Time left: {{ $hoursRemaining }}h {{ $minutesRemainder }}m
                                     </span>
                                 </div>
+                                @endif
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                @if($session->ended_at)
+                                    @if($session->amount_paid)
+                                        @if($session->payment_method === 'LBP')
+                                            {{ number_format($session->amount_paid * config('play.lbp_exchange_rate', 90000)) }} L.L
+                                        @else
+                                            ${{ number_format($session->amount_paid, 2) }}
+                                        @endif
+                                    @else
+                                        <span class="text-red-600">Not Paid</span>
+                                    @endif
+                                @else
+                                    <span class="text-yellow-600">In Progress</span>
                                 @endif
                             </td>
                             <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
@@ -196,6 +214,11 @@
                     <button type="submit" class="bg-gray-200 hover:bg-gray-300 text-gray-700 py-2 px-4 rounded-md">
                         Filter
                     </button>
+                    @if(request('filter'))
+                        <a href="{{ route('cashier.sessions.index') }}" class="text-gray-600 hover:text-gray-900">
+                            Reset
+                        </a>
+                    @endif
                 </form>
             </div>
         </div>
@@ -261,15 +284,20 @@
                                     {{ $sessionDuration->hours }}h {{ $sessionDuration->minutes }}m
                                 </div>
                             </td>
-                            <td class="px-6 py-4 whitespace-nowrap">
-                                <div class="text-sm font-medium text-gray-900">
-                                    @if($session->payment_method === 'LBP')
-                                    {{ number_format($session->total_cost * config('play.lbp_exchange_rate', 90000)) }}
-                                    L.L
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                @if($session->ended_at)
+                                    @if($session->amount_paid)
+                                        @if($session->payment_method === 'LBP')
+                                            {{ number_format($session->amount_paid * config('play.lbp_exchange_rate', 90000)) }} L.L
+                                        @else
+                                            ${{ number_format($session->amount_paid, 2) }}
+                                        @endif
                                     @else
-                                    ${{ number_format($session->total_cost, 2) }}
+                                        <span class="text-red-600">Not Paid</span>
                                     @endif
-                                </div>
+                                @else
+                                    <span class="text-yellow-600">In Progress</span>
+                                @endif
                             </td>
                             <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
                                 <a href="{{ route('cashier.sessions.show', $session) }}"
@@ -329,6 +357,8 @@ function formatDuration(seconds) {
 
 setInterval(function() {
     const now = Math.floor(Date.now() / 1000);
+    let endedSessions = [];
+    
     sessions.forEach(function(session) {
         const elapsed = now - session.start;
         // Update duration
@@ -350,10 +380,19 @@ setInterval(function() {
                 elem.classList.add('alerted');
                 elem.classList.remove('text-green-600', 'text-yellow-600');
                 elem.classList.add('text-red-600');
-                alert('Session for child has ended!');
+                endedSessions.push(session.childName);
             }
         }
     });
+
+    // Show a single alert for all ended sessions
+    if (endedSessions.length > 0 && !window.sessionEndAlertShown) {
+        window.sessionEndAlertShown = true;
+        const message = endedSessions.length === 1 
+            ? `Session for ${endedSessions[0]} has ended!`
+            : `Sessions for ${endedSessions.join(', ')} have ended!`;
+        alert(message);
+    }
 }, 1000);
 </script>
 @endsection
