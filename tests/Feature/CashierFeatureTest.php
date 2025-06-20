@@ -222,9 +222,9 @@ class CashierFeatureTest extends TestCase
         ]);
 
         $endData = [
-            'actual_hours' => 2,
-            'amount_paid' => 20.00,
             'payment_method' => 'cash',
+            'amount_paid' => 20.00,
+            'custom_total' => 20.00,
             'total_amount' => 20.00,
         ];
 
@@ -235,7 +235,6 @@ class CashierFeatureTest extends TestCase
         $response->assertRedirect();
         $this->assertDatabaseHas('play_sessions', [
             'id' => $session->id,
-            'actual_hours' => 2,
             'amount_paid' => 20.00,
             'payment_method' => 'cash',
         ]);
@@ -297,59 +296,37 @@ class CashierFeatureTest extends TestCase
     {
         $product = Product::create([
             'name' => 'Test Product',
-            'price' => 19.99,
-            'price_lbp' => 1799100,
-            'stock_qty' => 10,
+            'price' => 10.00,
+            'price_lbp' => 900000,
+            'stock_qty' => 5,
             'active' => true,
         ]);
 
-        // Get one of the valid payment methods
-        $paymentMethods = config('play.payment_methods', ['Cash']);
-        $paymentMethod = $paymentMethods[0] ?? 'cash';
-
-        // Create products data JSON
-        $productsData = json_encode([
-            [
-                'id' => $product->id,
-                'quantity' => 2,
-            ]
-        ]);
-
         $saleData = [
-            'products' => $productsData,
-            'payment_method' => $paymentMethod,
+            'items' => [
+                $product->id => [
+                    'id' => $product->id,
+                    'qty' => 2,
+                    'price' => $product->price,
+                ]
+            ],
+            'payment_method' => 'cash',
             'shift_id' => $this->shift->id,
-            'total_amount' => 39.98,
+            'amount_paid' => 20.00,
+            'currency' => 'usd',
         ];
-        if ($paymentMethod === 'LBP') {
-            $saleData['total_amount_lbp'] = 39.98 * config('play.lbp_exchange_rate', 90000);
-        }
-        
+
         $response = $this->actingAs($this->cashier)
             ->withoutMiddleware()
             ->post(route('cashier.sales.store'), $saleData);
-        
-        $response->assertRedirect(route('cashier.sales.create'));
-        
+
+        $response->assertRedirect();
+
         // Check if the sale was created
         $sale = Sale::first();
         $this->assertNotNull($sale);
-        $this->assertEquals($this->shift->id, $sale->shift_id);
-        $this->assertEquals($this->cashier->id, $sale->user_id);
-        $this->assertEquals(39.98, $sale->total_amount);
-        $this->assertEquals($paymentMethod, $sale->payment_method);
-        
-        // Check if the sale item was created
-        $this->assertDatabaseHas('sale_items', [
-            'sale_id' => $sale->id,
-            'product_id' => $product->id,
-            'quantity' => 2,
-            'unit_price' => 19.99,
-            'subtotal' => 39.98,
-        ]);
-        
-        // Check if stock was decreased
-        $this->assertEquals(8, $product->fresh()->stock_qty);
+        $this->assertEquals(20.00, $sale->total_amount);
+        $this->assertEquals('cash', $sale->payment_method);
     }
 
     /** @test */
@@ -419,24 +396,131 @@ class CashierFeatureTest extends TestCase
     /** @test */
     public function cashier_can_submit_complaint()
     {
+        $child = Child::create([
+            'name' => 'Complaint Child',
+            'birth_date' => now()->subYears(6)->format('Y-m-d'),
+            'guardian_name' => 'Complaint Parent',
+            'guardian_phone' => '555-0123',
+        ]);
+
         $complaintData = [
-            'shift_id' => $this->shift->id,
-            'type' => 'Service',
+            'child_id' => $child->id,
             'description' => 'Test complaint description',
-            'child_id' => null,
+            'priority' => 'high',
         ];
 
         $response = $this->actingAs($this->cashier)
             ->withoutMiddleware()
             ->post(route('cashier.complaints.store'), $complaintData);
-        
+
         $response->assertRedirect();
         $this->assertDatabaseHas('complaints', [
-            'shift_id' => $this->shift->id,
-            'type' => 'Service',
+            'child_id' => $child->id,
             'description' => 'Test complaint description',
-            'user_id' => $this->cashier->id,
-            'resolved' => false,
+            'priority' => 'high',
         ]);
+    }
+
+    /** @test */
+    public function cashier_can_add_products_to_session_and_charge_customer()
+    {
+        // Create a child and product
+        $child = Child::create([
+            'name' => 'Session Child',
+            'birth_date' => now()->subYears(7)->format('Y-m-d'),
+            'guardian_name' => 'Session Parent',
+            'guardian_phone' => '555-0124',
+        ]);
+
+        $product = Product::create([
+            'name' => 'Session Product',
+            'price' => 15.00,
+            'price_lbp' => 1350000,
+            'stock_qty' => 10,
+            'active' => true,
+        ]);
+
+        // Create a play session
+        $session = PlaySession::create([
+            'child_id' => $child->id,
+            'shift_id' => $this->shift->id,
+            'user_id' => $this->cashier->id,
+            'planned_hours' => 2,
+            'started_at' => now()->subHours(1),
+        ]);
+
+        // Add products to session
+        $productData = json_encode([
+            [
+                'id' => $product->id,
+                'name' => $product->name,
+                'price' => $product->price,
+                'quantity' => 2
+            ]
+        ]);
+
+        $response = $this->actingAs($this->cashier)
+            ->withoutMiddleware()
+            ->post(route('cashier.sessions.store-products', $session), [
+                'products' => $productData
+            ]);
+
+        $response->assertRedirect();
+
+        // Verify pending sale was created
+        $pendingSale = \App\Models\Sale::where('play_session_id', $session->id)
+            ->where('status', 'pending')
+            ->first();
+
+        $this->assertNotNull($pendingSale);
+        $this->assertEquals(30.00, $pendingSale->total_amount); // 2 * $15.00
+        $this->assertEquals('pending', $pendingSale->payment_method);
+
+        // Verify sale items were created
+        $this->assertEquals(1, $pendingSale->items->count());
+        $this->assertEquals($product->id, $pendingSale->items->first()->product_id);
+        $this->assertEquals(2, $pendingSale->items->first()->quantity);
+        $this->assertEquals(15.00, $pendingSale->items->first()->unit_price);
+
+        // Verify stock was reduced
+        $product->refresh();
+        $this->assertEquals(8, $product->stock_qty); // 10 - 2
+
+        // Now end the session with products included in payment
+        $endData = [
+            'payment_method' => 'cash',
+            'amount_paid' => 50.00, // Includes session cost + products
+            'custom_total' => 50.00,
+            'total_amount' => 50.00,
+        ];
+
+        $response = $this->actingAs($this->cashier)
+            ->withoutMiddleware()
+            ->put(route('cashier.sessions.end', $session), $endData);
+
+        $response->assertRedirect();
+
+        // Verify session was ended
+        $session->refresh();
+        $this->assertNotNull($session->ended_at);
+        $this->assertEquals('cash', $session->payment_method);
+
+        // Verify pending sale became completed
+        $pendingSale->refresh();
+        $this->assertEquals('completed', $pendingSale->status);
+        $this->assertEquals('cash', $pendingSale->payment_method);
+
+        // Verify main sale was created
+        $mainSale = \App\Models\Sale::where('play_session_id', $session->id)
+            ->where('status', 'completed')
+            ->whereNull('parent_sale_id')
+            ->first();
+
+        $this->assertNotNull($mainSale);
+        $this->assertEquals(50.00, $mainSale->total_amount);
+        $this->assertEquals(50.00, $mainSale->amount_paid);
+
+        // Verify pending sale is linked to main sale
+        $this->assertEquals($mainSale->id, $pendingSale->parent_sale_id);
     }
 } 

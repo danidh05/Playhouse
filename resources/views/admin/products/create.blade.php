@@ -57,6 +57,14 @@
             @enderror
         </div>
 
+        <div class="mb-4">
+            <label class="flex items-center">
+                <input type="checkbox" name="active" value="1" class="form-checkbox h-5 w-5 text-blue-600" {{ old('active', true) ? 'checked' : '' }}>
+                <span class="ml-2 text-gray-700 text-sm font-bold">Active Product</span>
+            </label>
+            <p class="text-gray-500 text-xs mt-1">Active products are available for sale</p>
+        </div>
+
         <div class="flex justify-end">
             <button type="submit"
                 class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline">

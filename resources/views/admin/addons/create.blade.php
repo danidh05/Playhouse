@@ -35,6 +35,14 @@
             @enderror
         </div>
 
+        <div class="mb-4">
+            <label class="flex items-center">
+                <input type="checkbox" name="active" value="1" class="form-checkbox h-5 w-5 text-blue-600" {{ old('active', true) ? 'checked' : '' }}>
+                <span class="ml-2 text-gray-700 text-sm font-bold">Active Add-on</span>
+            </label>
+            <p class="text-gray-500 text-xs mt-1">Active add-ons are available for purchase</p>
+        </div>
+
         <div class="flex justify-end">
             <button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">
                 Add Add-On

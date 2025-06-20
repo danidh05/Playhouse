@@ -190,16 +190,12 @@ class ShiftController extends Controller
             'notes' => 'nullable|string',
         ]);
         
-        // Close the shift even if there are active play sessions
-        // The play sessions will remain associated with this shift
-        \DB::table('shifts')
-            ->where('id', $shift->id)
-            ->update([
-                'closed_at' => now(),
-                'closing_amount' => $validated['closing_amount'],
-                'notes' => $validated['notes'],
-                'updated_at' => now(),
-            ]);
+        // Close the shift using Eloquent model to ensure proper updates
+        $shift->closed_at = now();
+        $shift->ending_time = now(); // For compatibility
+        $shift->closing_amount = $validated['closing_amount'];
+        $shift->notes = $validated['notes'];
+        $shift->save();
         
         // Redirect to the shift report instead of the dashboard
         return redirect()->route('cashier.shifts.report', $shift)

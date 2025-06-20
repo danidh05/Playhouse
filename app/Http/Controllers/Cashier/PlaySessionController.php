@@ -385,7 +385,7 @@ class PlaySessionController extends Controller
         $request->validate([
             'payment_method' => ['required', Rule::in($paymentMethods)],
             'amount_paid' => 'required|numeric|min:0',
-            'custom_total' => 'required|numeric|min:0', // Validate the new custom price field
+            'custom_total' => 'nullable|numeric|min:0', // Make custom_total optional
             'total_amount' => 'required|numeric|min:0',
         ]);
     
@@ -541,7 +541,8 @@ class PlaySessionController extends Controller
             $currentCashierShift = Shift::create([
                 'cashier_id' => Auth::id(),
                 'date' => now()->toDateString(),
-                'type' => (now()->hour < 12) ? 'morning' : 'afternoon',
+                'type' => (now()->hour < 12) ? 'morning' : (now()->hour < 18 ? 'afternoon' : 'evening'),
+                'opening_amount' => 0.00,
                 'opened_at' => now(),
             ]);
         }
@@ -684,6 +685,9 @@ class PlaySessionController extends Controller
             // Create a new shift for the cashier if none exists
             $shift = \App\Models\Shift::create([
                 'cashier_id' => Auth::id(),
+                'date' => now()->toDateString(),
+                'type' => (now()->hour < 12) ? 'morning' : (now()->hour < 18 ? 'afternoon' : 'evening'),
+                'opening_amount' => 0.00,
                 'opened_at' => now(),
             ]);
         }
@@ -866,7 +870,8 @@ class PlaySessionController extends Controller
                     $currentCashierShift = Shift::create([
                         'cashier_id' => Auth::id(),
                         'date' => now()->toDateString(),
-                        'type' => (now()->hour < 12) ? 'morning' : 'afternoon',
+                        'type' => (now()->hour < 12) ? 'morning' : (now()->hour < 18 ? 'afternoon' : 'evening'),
+                        'opening_amount' => 0.00,
                         'opened_at' => now(),
                     ]);
                 }
