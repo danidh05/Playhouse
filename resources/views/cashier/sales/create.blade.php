@@ -103,11 +103,11 @@
                 <div class="font-medium mb-1">Payment Method:</div>
                 <div class="flex items-center space-x-2 mb-3">
                     <label class="inline-flex items-center">
-                        <input type="radio" name="payment_method" value="cash" checked class="form-radio">
+                        <input type="radio" name="payment_method" value="LBP" checked class="form-radio">
                         <span class="ml-2 text-gray-700">LBP</span>
                     </label>
                     <label class="inline-flex items-center">
-                        <input type="radio" name="payment_method" value="card" class="form-radio">
+                        <input type="radio" name="payment_method" value="USD" class="form-radio">
                         <span class="ml-2 text-gray-700">USD</span>
                     </label>
                 </div>
@@ -237,7 +237,7 @@
     <input type="hidden" name="items" id="products-input">
     <input type="hidden" name="total_amount" id="total-amount-input">
     <input type="hidden" name="total_amount_lbp" id="total-amount-lbp-input">
-    <input type="hidden" name="payment_method" id="payment-method-input" value="cash">
+    <input type="hidden" name="payment_method" id="payment-method-input" value="LBP">
     <input type="hidden" name="amount_paid" id="amount-paid-input" value="0">
     <input type="hidden" name="shift_id" value="{{ $activeShift ? $activeShift->id : '' }}">
     <input type="hidden" name="child_id" id="child-id-input" value="{{ request()->child_id ?? '' }}">
@@ -604,7 +604,7 @@ function processSale() {
 
         // Get the amount paid based on payment method
         let amountPaid;
-        if (paymentMethod === 'cash') {
+        if (paymentMethod === 'LBP') {
             const cashInputLbp = document.getElementById('cash-input-lbp');
             amountPaid = parseFloat(cashInputLbp.value.replace(/,/g, '')) || 0;
         } else {
@@ -794,7 +794,7 @@ document.addEventListener('DOMContentLoaded', function() {
             const lbpSection = document.getElementById('lbp-payment-section');
             const usdSection = document.getElementById('usd-payment-section');
 
-            if (this.value === 'cash') {
+            if (this.value === 'LBP') {
                 lbpSection.style.display = 'block';
                 usdSection.style.display = 'none';
                 document.getElementById('cash-input-lbp').value = '';
@@ -892,7 +892,7 @@ document.addEventListener('DOMContentLoaded', function() {
         const lbpSection = document.getElementById('lbp-payment-section');
         const usdSection = document.getElementById('usd-payment-section');
 
-        if (selectedMethod === 'cash') {
+        if (selectedMethod === 'LBP') {
             lbpSection.style.display = 'block';
             usdSection.style.display = 'none';
 

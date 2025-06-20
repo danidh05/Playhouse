@@ -265,7 +265,7 @@ class PlaySessionController extends Controller
     }
 
     /**
-     * Display the end session form.
+     * Show the session end form with calculated totals.
      */
     public function showEnd(PlaySession $session, Request $request)
     {
@@ -337,7 +337,6 @@ class PlaySessionController extends Controller
         $pendingSales = \App\Models\Sale::where('play_session_id', $session->id)
             ->where('status', 'pending')
             ->with('items.product')
-            ->latest()
             ->get();
             
         $pendingSalesTotal = $pendingSales->sum('total_amount');
@@ -385,7 +384,7 @@ class PlaySessionController extends Controller
         $request->validate([
             'payment_method' => ['required', Rule::in($paymentMethods)],
             'amount_paid' => 'required|numeric|min:0',
-            'custom_total' => 'nullable|numeric|min:0', // Make custom_total optional
+            'custom_total' => 'nullable|numeric|min:0',
             'total_amount' => 'required|numeric|min:0',
         ]);
     
@@ -474,6 +473,7 @@ class PlaySessionController extends Controller
         // Get pending product sales
         $pendingSales = \App\Models\Sale::where('play_session_id', $session->id)
             ->where('status', 'pending')
+            ->with('items.product')
             ->get();
             
         $pendingSalesTotal = $pendingSales->sum('total_amount');
@@ -561,8 +561,47 @@ class PlaySessionController extends Controller
             'status' => 'completed'
         ]);
         
-        // Update pending sales status to completed and link to main sale
+        // Create sale items for session time and add-ons first
+        // Session time item
+        if ($timeCost > 0) {
+            \App\Models\SaleItem::create([
+                'sale_id' => $sale->id,
+                'product_id' => null, // No product for session time
+                'quantity' => 1,
+                'unit_price' => $timeCost,
+                'subtotal' => $timeCost,
+                'description' => 'Play session (' . number_format($actualHours, 2) . ' hours)' . 
+                               ($session->discount_pct > 0 ? ' - ' . $session->discount_pct . '% discount applied' : '')
+            ]);
+        }
+        
+        // Add-ons items
+        foreach ($session->addOns as $addon) {
+            \App\Models\SaleItem::create([
+                'sale_id' => $sale->id,
+                'product_id' => null, // No product for add-ons
+                'quantity' => $addon->pivot->qty,
+                'unit_price' => $addon->price,
+                'subtotal' => $addon->pivot->subtotal,
+                'description' => $addon->name . ' (add-on)'
+            ]);
+        }
+        
+        // Transfer pending product sales to main sale
         foreach($pendingSales as $pendingSale) {
+            // Copy each product item from pending sale to main sale
+            foreach($pendingSale->items as $item) {
+                \App\Models\SaleItem::create([
+                    'sale_id' => $sale->id,
+                    'product_id' => $item->product_id,
+                    'quantity' => $item->quantity,
+                    'unit_price' => $item->unit_price,
+                    'subtotal' => $item->subtotal,
+                    'description' => $item->product->name
+                ]);
+            }
+            
+            // Mark pending sale as completed and link to main sale
             $pendingSale->update([
                 'status' => 'completed',
                 'payment_method' => $paymentMethod,
@@ -574,7 +613,6 @@ class PlaySessionController extends Controller
         return redirect()->route('cashier.sales.show', $sale->id)
             ->with('success', 'Play session ended successfully');
     }
-    
 
     /**
      * Update add-ons for a session.
@@ -610,7 +648,7 @@ class PlaySessionController extends Controller
             }
         }
 
-        return redirect()->route('cashier.sessions.show', $session)
+        return redirect()->route('cashier.sessions.show', $session->id)
             ->with('success', 'Add-ons updated successfully');
     }
 
@@ -648,7 +686,6 @@ class PlaySessionController extends Controller
         $pendingSales = \App\Models\Sale::where('play_session_id', $session->id)
             ->where('status', 'pending')
             ->with('items.product')
-            ->latest()
             ->get();
         
         return view('cashier.sessions.add-products', compact('session', 'products', 'pendingSales'));
@@ -666,11 +703,15 @@ class PlaySessionController extends Controller
         
         // Validate request
         $request->validate([
-            'products' => 'required|json',
+            'products' => 'required',
         ]);
         
-        // Decode the products from the JSON string
-        $productsData = json_decode($request->products, true);
+        // Decode the products from JSON string or use array directly
+        if (is_string($request->products)) {
+            $productsData = json_decode($request->products, true);
+        } else {
+            $productsData = $request->products;
+        }
         
         if (empty($productsData)) {
             return redirect()->back()->with('error', 'No products selected.');
@@ -738,8 +779,8 @@ class PlaySessionController extends Controller
             ]);
         }
         
-        return redirect()->route('cashier.sessions.show', $session)
-            ->with('success', 'Products added to the session successfully. They will be included in the final bill.');
+        return redirect()->route('cashier.sessions.show', $session->id)
+            ->with('success', 'Products added to session successfully');
     }
 
     /**
@@ -751,7 +792,7 @@ class PlaySessionController extends Controller
         $hasSales = \App\Models\Sale::where('play_session_id', $session->id)->exists();
         
         if ($hasSales) {
-            return redirect()->route('cashier.sessions.show', $session)
+            return redirect()->route('cashier.sessions.show', $session->id)
                 ->with('error', 'Cannot delete this session because it has associated sales records.');
         }
         

@@ -21,7 +21,8 @@ class SaleItem extends Model
         'add_on_id',
         'quantity',
         'unit_price',
-        'subtotal'
+        'subtotal',
+        'description'
     ];
 
     /**

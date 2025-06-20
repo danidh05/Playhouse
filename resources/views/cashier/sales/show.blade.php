@@ -203,57 +203,49 @@
                         @endphp
 
                             @if($sale->play_session)
-                            <!-- Display play session as an item -->
+                            <!-- Display all sale items (including session time, add-ons, and products) -->
+                            @foreach($sale->items as $item)
                             <tr>
                                 <td class="px-4 py-3 whitespace-nowrap">
-                                    <div class="text-sm font-medium text-gray-900">Play Session</div>
-                                    <div class="text-xs text-gray-500">
-                                        {{ $timeDisplay }}
-                                        @if($hasCustomPrice)
-                                        <span class="ml-1 px-1.5 py-0.5 bg-blue-100 text-blue-800 rounded-full text-xs">Custom Price</span>
-                                        @elseif($sale->play_session->discount_pct > 0)
-                                        ({{ $sale->play_session->discount_pct }}% discount)
+                                    <div class="text-sm font-medium text-gray-900">
+                                        @if($item->product_id)
+                                            {{ $item->product->name }}
+                                        @elseif($item->description)
+                                            {{ $item->description }}
+                                        @else
+                                            Item
                                         @endif
                                     </div>
-                                </td>
-                                <td class="px-4 py-3 whitespace-nowrap text-right text-sm">
-                                    @if($hasCustomPrice)
-                                    <span class="text-blue-600 font-medium">Flat Rate</span>
-                                    @else
-                                    {{ number_format(config('play.hourly_rate', 10.00) * $multiplier, 2) }}{{ $suffix }}/hr
+                                    @if($item->description && strpos($item->description, 'Play session') !== false)
+                                        <div class="text-xs text-gray-500">
+                                            @if($sale->play_session->discount_pct > 0)
+                                            ({{ $sale->play_session->discount_pct }}% discount applied)
+                                            @endif
+                                        </div>
+                                    @elseif($item->description && strpos($item->description, 'add-on') !== false)
+                                        <div class="text-xs text-gray-500">Add-on</div>
+                                    @elseif($item->product_id)
+                                        <div class="text-xs text-gray-500">Product</div>
                                     @endif
                                 </td>
                                 <td class="px-4 py-3 whitespace-nowrap text-right text-sm">
-                                    @if($hasCustomPrice)
-                                    1
+                                    @if($item->product_id)
+                                        {{ number_format($item->unit_price * $multiplier, 2) }}{{ $suffix }}
+                                    @elseif(strpos($item->description, 'Play session') !== false)
+                                        @if($hasCustomPrice)
+                                        <span class="text-blue-600 font-medium">Flat Rate</span>
+                                        @else
+                                        {{ number_format(config('play.hourly_rate', 10.00) * $multiplier, 2) }}{{ $suffix }}/hr
+                                        @endif
                                     @else
-                                    {{ $timeDisplay }}
+                                        {{ number_format($item->unit_price * $multiplier, 2) }}{{ $suffix }}
                                     @endif
+                                </td>
+                                <td class="px-4 py-3 whitespace-nowrap text-right text-sm">
+                                    {{ $item->quantity }}
                                 </td>
                                 <td class="px-4 py-3 whitespace-nowrap text-right text-sm font-medium">
-                                    @if($hasCustomPrice)
-                                    <span class="text-blue-600 font-medium">{{ $customPriceDisplay }}</span>
-                                    @else
-                                    {{ number_format($sessionCost * $multiplier, 2) }}{{ $suffix }}
-                                    @endif
-                                </td>
-                            </tr>
-
-                            <!-- Display add-ons if any -->
-                            @foreach($sale->play_session->addOns as $addOn)
-                            <tr>
-                                <td class="px-4 py-3 whitespace-nowrap">
-                                    <div class="text-sm font-medium text-gray-900">{{ $addOn->name }}</div>
-                                    <div class="text-xs text-gray-500">Add-on</div>
-                                </td>
-                                <td class="px-4 py-3 whitespace-nowrap text-right text-sm">
-                                    {{ number_format($addOn->price * $multiplier, 2) }}{{ $suffix }}
-                                </td>
-                                <td class="px-4 py-3 whitespace-nowrap text-right text-sm">
-                                <span class="text-xs text-gray-500">Qty: </span>{{ $addOn->pivot->qty }}
-                                </td>
-                                <td class="px-4 py-3 whitespace-nowrap text-right text-sm font-medium">
-                                    {{ number_format($addOn->pivot->subtotal * $multiplier, 2) }}{{ $suffix }}
+                                    {{ number_format($item->subtotal * $multiplier, 2) }}{{ $suffix }}
                                 </td>
                             </tr>
                             @endforeach
@@ -265,7 +257,7 @@
                                     <tr>
                                         <td class="px-4 py-3 whitespace-nowrap">
                                             <div class="text-sm font-medium text-gray-900">{{ $item->product->name }}</div>
-                                            <div class="text-xs text-gray-500">Product</div>
+                                            <div class="text-xs text-gray-500">Product (from session)</div>
                                         </td>
                                         <td class="px-4 py-3 whitespace-nowrap text-right text-sm">
                                             {{ number_format($item->unit_price * $multiplier, 2) }}{{ $suffix }}
@@ -336,8 +328,6 @@
                         Lebanese Pounds (L.L)
                         @elseif($sale->payment_method === 'USD')
                         US Dollars ($)
-                        @elseif($sale->payment_method === 'Card')
-                        Credit/Debit Card
                         @else
                         {{ $sale->payment_method }}
                         @endif

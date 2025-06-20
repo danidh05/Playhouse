@@ -45,9 +45,7 @@ return [
      * These payment methods are used for form validation and in database records.
      */
     'payment_methods' => [
-        'cash',
-        'card',
-        'LBP',
         'USD',
+        'LBP',
     ],
 ]; 
