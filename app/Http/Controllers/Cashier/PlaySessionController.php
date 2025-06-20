@@ -717,6 +717,44 @@ class PlaySessionController extends Controller
             return redirect()->back()->with('error', 'No products selected.');
         }
         
+        // Normalize the products data structure
+        $normalizedProducts = [];
+        
+        // Handle different possible data structures
+        foreach ($productsData as $key => $productData) {
+            if (is_array($productData)) {
+                // Structure 1: Array with 'id', 'quantity' keys (from JavaScript)
+                if (isset($productData['id']) && isset($productData['quantity'])) {
+                    if ((int)$productData['quantity'] > 0) {
+                        $normalizedProducts[] = [
+                            'id' => (int)$productData['id'],
+                            'quantity' => (int)$productData['quantity']
+                        ];
+                    }
+                }
+                // Structure 2: Nested array like products[product_id][qty] (from form)
+                elseif (isset($productData['qty'])) {
+                    if ((int)$productData['qty'] > 0) {
+                        $normalizedProducts[] = [
+                            'id' => (int)$key, // key is the product ID
+                            'quantity' => (int)$productData['qty']
+                        ];
+                    }
+                }
+            }
+            // Structure 3: Direct quantity value (products[product_id] = quantity)
+            elseif (is_numeric($productData) && (int)$productData > 0) {
+                $normalizedProducts[] = [
+                    'id' => (int)$key, // key is the product ID
+                    'quantity' => (int)$productData
+                ];
+            }
+        }
+        
+        if (empty($normalizedProducts)) {
+            return redirect()->back()->with('error', 'No valid products selected.');
+        }
+        
         // Find active shift
         $shift = \App\Models\Shift::where('cashier_id', Auth::id())
             ->whereNull('closed_at')
@@ -733,13 +771,32 @@ class PlaySessionController extends Controller
             ]);
         }
         
-        // Calculate total amount
+        // Validate all products exist and calculate total amount
         $totalAmount = 0;
-        foreach ($productsData as $productData) {
+        $validatedProducts = [];
+        
+        foreach ($normalizedProducts as $productData) {
             $product = \App\Models\Product::find($productData['id']);
-            if ($product) {
-                $totalAmount += $product->price * $productData['quantity'];
+            
+            if (!$product) {
+                return redirect()->back()->with('error', "Product with ID {$productData['id']} not found.");
             }
+            
+            if (!$product->active) {
+                return redirect()->back()->with('error', "Product '{$product->name}' is not currently available.");
+            }
+            
+            if ($product->stock_qty < $productData['quantity']) {
+                return redirect()->back()->with('error', "Not enough stock available for '{$product->name}'. Available: {$product->stock_qty}, Requested: {$productData['quantity']}");
+            }
+            
+            $validatedProducts[] = [
+                'product' => $product,
+                'quantity' => $productData['quantity'],
+                'subtotal' => $product->price * $productData['quantity']
+            ];
+            
+            $totalAmount += $product->price * $productData['quantity'];
         }
         
         // Create the sale with pending status
@@ -754,28 +811,25 @@ class PlaySessionController extends Controller
         $sale->status = 'pending';
         $sale->save();
         
-        // Process each product
-        foreach ($productsData as $productData) {
-            $product = \App\Models\Product::find($productData['id']);
-            
-            if (!$product || $product->stock_qty < $productData['quantity']) {
-                // If we don't have enough stock, delete the sale and redirect back
-                $sale->delete();
-                return redirect()->back()->with('error', "Not enough stock available for {$product->name}");
-            }
+        // Process each validated product
+        foreach ($validatedProducts as $validatedProduct) {
+            $product = $validatedProduct['product'];
+            $quantity = $validatedProduct['quantity'];
+            $subtotal = $validatedProduct['subtotal'];
             
             // Create the sale item
             $saleItem = new \App\Models\SaleItem();
             $saleItem->sale_id = $sale->id;
             $saleItem->product_id = $product->id;
-            $saleItem->quantity = $productData['quantity'];
+            $saleItem->quantity = $quantity;
             $saleItem->unit_price = $product->price;
-            $saleItem->subtotal = $product->price * $productData['quantity'];
+            $saleItem->subtotal = $subtotal;
+            $saleItem->description = $product->name; // Add description
             $saleItem->save();
             
             // Update the stock quantity
             $product->update([
-                'stock_qty' => $product->stock_qty - $productData['quantity']
+                'stock_qty' => $product->stock_qty - $quantity
             ]);
         }
         
