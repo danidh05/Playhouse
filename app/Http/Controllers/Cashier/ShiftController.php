@@ -116,7 +116,7 @@ class ShiftController extends Controller
     public function showClose(Shift $shift)
     {
         // Ensure this is the current user's shift and it's open
-        if ($shift->cashier_id != Auth::id() || $shift->closed_at !== null) {
+        if (($shift->cashier_id != Auth::id() && $shift->user_id != Auth::id()) || $shift->closed_at !== null) {
             return redirect()->route('cashier.dashboard')
                 ->with('error', 'You cannot close this shift.');
         }
@@ -141,18 +141,18 @@ class ShiftController extends Controller
         $playSessionSales = $allSales->whereNotNull('play_session_id');
         $productSales = $allSales->whereNull('play_session_id');
         
-        // 4. Calculate totals without double-counting
-        $sessionsTotal = $playSessionSales->sum('total_amount');
-        $salesTotal = $productSales->sum('total_amount');
+        // 4. Calculate totals without double-counting using ACTUAL PAID AMOUNTS
+        $sessionsTotal = $playSessionSales->whereNotNull('amount_paid')->sum('amount_paid');
+        $salesTotal = $productSales->whereNotNull('amount_paid')->sum('amount_paid');
         $totalRevenue = $sessionsTotal + $salesTotal;
         
-        // Payment method breakdown
+        // Payment method breakdown using ACTUAL PAID AMOUNTS
         $paymentMethods = config('play.payment_methods', ['Cash', 'Card', 'Transfer', 'LBP']);
         $paymentBreakdown = [];
         
         foreach ($paymentMethods as $method) {
-            $sessionAmount = $playSessionSales->where('payment_method', $method)->sum('total_amount');
-            $salesAmount = $productSales->where('payment_method', $method)->sum('total_amount');
+            $sessionAmount = $playSessionSales->where('payment_method', $method)->whereNotNull('amount_paid')->sum('amount_paid');
+            $salesAmount = $productSales->where('payment_method', $method)->whereNotNull('amount_paid')->sum('amount_paid');
             $totalAmount = $sessionAmount + $salesAmount;
             
             if ($totalAmount > 0) {
@@ -180,23 +180,26 @@ class ShiftController extends Controller
     public function update(Request $request, Shift $shift)
     {
         // Ensure this is the current user's shift and it's open
-        if ($shift->cashier_id != Auth::id() || $shift->closed_at !== null) {
+        if (($shift->cashier_id != Auth::id() && $shift->user_id != Auth::id()) || $shift->closed_at !== null) {
             return redirect()->route('cashier.dashboard')
                 ->with('error', 'You cannot close this shift.');
         }
         
-        $request->validate([
+        $validated = $request->validate([
             'closing_amount' => 'required|numeric|min:0',
             'notes' => 'nullable|string',
         ]);
         
         // Close the shift even if there are active play sessions
         // The play sessions will remain associated with this shift
-        $shift->update([
-            'closed_at' => now(),
-            'closing_amount' => $request->closing_amount,
-            'notes' => $request->notes,
-        ]);
+        \DB::table('shifts')
+            ->where('id', $shift->id)
+            ->update([
+                'closed_at' => now(),
+                'closing_amount' => $validated['closing_amount'],
+                'notes' => $validated['notes'],
+                'updated_at' => now(),
+            ]);
         
         // Redirect to the shift report instead of the dashboard
         return redirect()->route('cashier.shifts.report', $shift)
@@ -209,7 +212,7 @@ class ShiftController extends Controller
     public function report(Shift $shift)
     {
         // Ensure this is the current user's shift
-        if ($shift->cashier_id != Auth::id()) {
+        if ($shift->cashier_id != Auth::id() && $shift->user_id != Auth::id()) {
             return redirect()->route('cashier.dashboard')
                 ->with('error', 'You cannot view this shift report.');
         }
@@ -226,9 +229,9 @@ class ShiftController extends Controller
         $playSessionSales = $allSales->whereNotNull('play_session_id');
         $productSales = $allSales->whereNull('play_session_id');
         
-        // Calculate totals without double-counting
-        $sessionsTotal = $playSessionSales->sum('total_amount');
-        $salesTotal = $productSales->sum('total_amount');
+        // Calculate totals without double-counting using ACTUAL PAID AMOUNTS
+        $sessionsTotal = $playSessionSales->whereNotNull('amount_paid')->sum('amount_paid');
+        $salesTotal = $productSales->whereNotNull('amount_paid')->sum('amount_paid');
         $totalRevenue = $sessionsTotal + $salesTotal;
         
         return view('cashier.shifts.report', compact(

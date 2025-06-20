@@ -158,21 +158,9 @@
             });
         });
         
-        // Handle quantity buttons
-        document.querySelectorAll('.quantity-btn').forEach(button => {
-            button.addEventListener('click', function() {
-                const row = this.closest('.product-row');
-                const input = row.querySelector('.quantity-input');
-                const currentValue = parseInt(input.value);
-                const maxValue = parseInt(input.getAttribute('max'));
-                const action = this.getAttribute('data-action');
-                
-                if (action === 'plus' && currentValue < maxValue) {
-                    input.value = currentValue + 1;
-                } else if (action === 'minus' && currentValue > 0) {
-                    input.value = currentValue - 1;
-                }
-                
+        // Handle quantity changes from select dropdowns
+        document.querySelectorAll('.product-qty').forEach(select => {
+            select.addEventListener('change', function() {
                 updateSelectedProducts();
             });
         });
@@ -181,7 +169,8 @@
             selectedProducts = [];
             
             productRows.forEach(row => {
-                const quantity = parseInt(row.querySelector('.quantity-input').value);
+                const quantitySelect = row.querySelector('.product-qty');
+                const quantity = parseInt(quantitySelect.value);
                 
                 if (quantity > 0) {
                     selectedProducts.push({

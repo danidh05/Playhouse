@@ -72,6 +72,7 @@ class ShiftManagementTest extends TestCase
         // Create an open shift
         $shift = Shift::create([
             'cashier_id' => $this->cashier->id,
+            'user_id' => $this->cashier->id,
             'date' => now(),
             'type' => 'morning',
             'opening_amount' => 100.00,
@@ -82,7 +83,9 @@ class ShiftManagementTest extends TestCase
         $product = Product::create([
             'name' => 'Test Product',
             'price' => 19.99,
+            'price_lbp' => 1799100,
             'stock_qty' => 10,
+            'active' => true,
         ]);
 
         Sale::create([
@@ -148,6 +151,7 @@ class ShiftManagementTest extends TestCase
         // Create an open shift
         $shift = Shift::create([
             'cashier_id' => $this->cashier->id,
+            'user_id' => $this->cashier->id,
             'date' => now(),
             'type' => 'morning',
             'opening_amount' => 100.00,
@@ -195,6 +199,7 @@ class ShiftManagementTest extends TestCase
         // Create a closed shift with transactions
         $shift = Shift::create([
             'cashier_id' => $this->cashier->id,
+            'user_id' => $this->cashier->id,
             'date' => now(),
             'type' => 'morning',
             'opening_amount' => 100.00,
@@ -207,7 +212,9 @@ class ShiftManagementTest extends TestCase
         $product = Product::create([
             'name' => 'Test Product',
             'price' => 19.99,
+            'price_lbp' => 1799100,
             'stock_qty' => 10,
+            'active' => true,
         ]);
 
         Sale::create([
@@ -254,6 +261,7 @@ class ShiftManagementTest extends TestCase
         // Create some shifts
         Shift::create([
             'cashier_id' => $this->cashier->id,
+            'user_id' => $this->cashier->id,
             'date' => now(),
             'type' => 'morning',
             'opening_amount' => 100.00,
@@ -264,6 +272,7 @@ class ShiftManagementTest extends TestCase
 
         Shift::create([
             'cashier_id' => $this->cashier->id,
+            'user_id' => $this->cashier->id,
             'date' => now()->subDay(),
             'type' => 'evening',
             'opening_amount' => 100.00,
@@ -288,6 +297,7 @@ class ShiftManagementTest extends TestCase
         // Create a shift
         $shift = Shift::create([
             'cashier_id' => $this->cashier->id,
+            'user_id' => $this->cashier->id,
             'date' => now(),
             'type' => 'morning',
             'opening_amount' => 100.00,

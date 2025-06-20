@@ -22,7 +22,7 @@ class Expense extends Model
      *
      * @var bool
      */
-    public $timestamps = false;
+    public $timestamps = true;
 
     /**
      * The attributes that are mass assignable.
@@ -33,7 +33,7 @@ class Expense extends Model
         'user_id',
         'item',
         'amount',
-        'created_at',
+        'description',
     ];
 
     /**
@@ -43,7 +43,6 @@ class Expense extends Model
      */
     protected $casts = [
         'amount' => 'decimal:2',
-        'created_at' => 'datetime',
     ];
 
     /**

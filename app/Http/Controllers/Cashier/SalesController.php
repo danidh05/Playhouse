@@ -14,6 +14,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Validation\Rule;
 
 class SalesController extends Controller
 {
@@ -105,7 +106,7 @@ class SalesController extends Controller
             'items.*.id' => 'required|exists:products,id',
             'items.*.qty' => 'required|integer|min:1',
             'items.*.price' => 'required|numeric|min:0',
-            'payment_method' => 'required|in:cash,card',
+            'payment_method' => ['required', Rule::in(config('play.payment_methods', []))],
             'shift_id' => 'required|exists:shifts,id',
             'amount_paid' => 'required|numeric|min:0',
             'currency' => 'required|in:usd,lbp',

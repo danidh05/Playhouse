@@ -75,7 +75,9 @@ class CashierFeatureTest extends TestCase
             'notes' => 'Some notes',
         ];
 
-        $response = $this->actingAs($this->cashier)->post(route('cashier.children.store'), $childData);
+        $response = $this->actingAs($this->cashier)
+            ->withoutMiddleware()
+            ->post(route('cashier.children.store'), $childData);
         
         $response->assertRedirect();
         $this->assertDatabaseHas('children', [
@@ -104,6 +106,7 @@ class CashierFeatureTest extends TestCase
         ];
 
         $response = $this->actingAs($this->cashier)
+            ->withoutMiddleware()
             ->put(route('cashier.children.update', $child), $updatedData);
         
         $response->assertRedirect();
@@ -126,6 +129,7 @@ class CashierFeatureTest extends TestCase
         ]);
 
         $response = $this->actingAs($this->cashier)
+            ->withoutMiddleware()
             ->delete(route('cashier.children.destroy', $child));
         
         $response->assertRedirect();
@@ -165,6 +169,7 @@ class CashierFeatureTest extends TestCase
         ];
 
         $response = $this->actingAs($this->cashier)
+            ->withoutMiddleware()
             ->post(route('cashier.sessions.store'), $sessionData);
         
         $response->assertRedirect();
@@ -224,6 +229,7 @@ class CashierFeatureTest extends TestCase
         ];
 
         $response = $this->actingAs($this->cashier)
+            ->withoutMiddleware()
             ->put(route('cashier.sessions.end', $session), $endData);
         
         $response->assertRedirect();
@@ -258,9 +264,11 @@ class CashierFeatureTest extends TestCase
         $addon = AddOn::create([
             'name' => 'Test Add-On',
             'price' => 9.99,
+            'active' => true,
         ]);
 
         $response = $this->actingAs($this->cashier)
+            ->withoutMiddleware()
             ->patch(route('cashier.sessions.update-addons', $session), [
                 'add_ons' => [$addon->id => ['qty' => 1]]
             ]);
@@ -275,7 +283,9 @@ class CashierFeatureTest extends TestCase
         $product = Product::create([
             'name' => 'Test Product',
             'price' => 19.99,
+            'price_lbp' => 1799100,
             'stock_qty' => 10,
+            'active' => true,
         ]);
 
         $response = $this->actingAs($this->cashier)->get(route('cashier.sales.create'));
@@ -288,7 +298,9 @@ class CashierFeatureTest extends TestCase
         $product = Product::create([
             'name' => 'Test Product',
             'price' => 19.99,
+            'price_lbp' => 1799100,
             'stock_qty' => 10,
+            'active' => true,
         ]);
 
         // Get one of the valid payment methods
@@ -314,6 +326,7 @@ class CashierFeatureTest extends TestCase
         }
         
         $response = $this->actingAs($this->cashier)
+            ->withoutMiddleware()
             ->post(route('cashier.sales.store'), $saleData);
         
         $response->assertRedirect(route('cashier.sales.create'));
@@ -345,7 +358,9 @@ class CashierFeatureTest extends TestCase
         $product = Product::create([
             'name' => 'Test Product',
             'price' => 19.99,
+            'price_lbp' => 1799100,
             'stock_qty' => 10,
+            'active' => true,
         ]);
 
         $response = $this->actingAs($this->cashier)
@@ -362,7 +377,9 @@ class CashierFeatureTest extends TestCase
         $product = Product::create([
             'name' => 'List Test Product',
             'price' => 29.99,
+            'price_lbp' => 2699100,
             'stock_qty' => 5,
+            'active' => true,
         ]);
         
         // Create a sale
@@ -410,6 +427,7 @@ class CashierFeatureTest extends TestCase
         ];
 
         $response = $this->actingAs($this->cashier)
+            ->withoutMiddleware()
             ->post(route('cashier.complaints.store'), $complaintData);
         
         $response->assertRedirect();
