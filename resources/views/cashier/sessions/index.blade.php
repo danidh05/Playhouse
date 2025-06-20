@@ -237,6 +237,9 @@
                                 Guardian</th>
                             <th scope="col"
                                 class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                Sessions</th>
+                            <th scope="col"
+                                class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                                 Date & Time</th>
                             <th scope="col"
                                 class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -269,6 +272,14 @@
                             <td class="px-6 py-4 whitespace-nowrap">
                                 <div class="text-sm text-gray-900">{{ $session->child->guardian_name }}</div>
                                 <div class="text-sm text-gray-500">{{ $session->child->guardian_phone }}</div>
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                <div class="flex items-center">
+                                    <span class="bg-primary-light text-primary px-3 py-1 rounded-full text-sm font-medium">
+                                        {{ $session->child->play_sessions_count ?? 0 }}
+                                    </span>
+                                    <span class="text-xs text-gray-500 ml-2">total</span>
+                                </div>
                             </td>
                             <td class="px-6 py-4 whitespace-nowrap">
                                 <div class="text-sm text-gray-900">{{ $session->start_time->format('h:i A') }} -

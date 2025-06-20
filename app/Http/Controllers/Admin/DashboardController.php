@@ -62,10 +62,11 @@ class DashboardController extends Controller
             $salesRevenue = Sale::whereDate('created_at', $date)->sum('total_amount');
             $salesData[] = round($salesRevenue, 2);
             
-            // Get play sessions revenue for this day
+            // Get play sessions revenue for this day (using amount_paid not total_cost)
             $sessionsRevenue = PlaySession::whereDate('ended_at', $date)
                                 ->whereNotNull('ended_at')
-                                ->sum('total_cost');
+                                ->whereNotNull('amount_paid')
+                                ->sum('amount_paid');
             $sessionsData[] = round($sessionsRevenue, 2);
             
             // Total revenue for the day

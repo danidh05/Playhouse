@@ -161,14 +161,15 @@ class Shift extends Model
         // Start with opening amount
         $expected = $this->opening_amount;
         
-        // Add cash sales
+        // Add cash sales (using correct column name)
         $expected += $this->sales()
             ->where('payment_method', 'cash')
-            ->sum('total_price');
+            ->sum('total_amount');
             
-        // Add cash play sessions
+        // Add cash play sessions (using correct column name)
         $expected += $this->playSessions()
             ->where('payment_method', 'cash')
+            ->whereNotNull('amount_paid')
             ->sum('amount_paid');
             
         return (float) $expected;
@@ -192,11 +193,12 @@ class Shift extends Model
     public function cardTotal(): float
     {
         $cardSales = $this->sales()
-            ->where('payment_method', 'card')
-            ->sum('total_price');
+            ->whereIn('payment_method', ['card', 'credit card', 'debit card'])
+            ->sum('total_amount');
             
         $cardPlaySessions = $this->playSessions()
-            ->where('payment_method', 'card')
+            ->whereIn('payment_method', ['card', 'credit card', 'debit card'])
+            ->whereNotNull('amount_paid')
             ->sum('amount_paid');
             
         return (float) ($cardSales + $cardPlaySessions);
@@ -207,7 +209,7 @@ class Shift extends Model
      */
     public function totalSales(): float
     {
-        return $this->sales->sum('total_price');
+        return $this->sales->sum('total_amount');
     }
 
     /**
@@ -215,7 +217,7 @@ class Shift extends Model
      */
     public function totalPlaySessions(): float
     {
-        return $this->playSessions->sum('amount_paid');
+        return $this->playSessions->whereNotNull('amount_paid')->sum('amount_paid');
     }
 
     /**

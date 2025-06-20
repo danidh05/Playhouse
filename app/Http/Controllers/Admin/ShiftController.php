@@ -46,19 +46,18 @@ class ShiftController extends Controller
         $sessions = PlaySession::where('shift_id', $shift->id)->get();
         $sales = Sale::where('shift_id', $shift->id)->get();
         
-        $sessionsTotal = $sessions->sum('total_cost');
-        $salesTotal = $sales->sum('total_price');
+        // Use correct column names for calculations
+        $sessionsTotal = $sessions->whereNotNull('amount_paid')->sum('amount_paid');
+        $salesTotal = $sales->sum('total_amount');
         $totalRevenue = $sessionsTotal + $salesTotal;
         
-        // Calculate payment method breakdown
-        $cashSessions = $sessions->where('payment_method', 'cash')->sum('total_cost');
-        $cardSessions = $sessions->where('payment_method', 'credit card')->sum('total_cost') + 
-                        $sessions->where('payment_method', 'debit card')->sum('total_cost');
+        // Calculate payment method breakdown using correct columns
+        $cashSessions = $sessions->where('payment_method', 'cash')->whereNotNull('amount_paid')->sum('amount_paid');
+        $cardSessions = $sessions->whereIn('payment_method', ['credit card', 'debit card', 'card'])->whereNotNull('amount_paid')->sum('amount_paid');
         $otherSessions = $sessionsTotal - $cashSessions - $cardSessions;
         
-        $cashSales = $sales->where('payment_method', 'cash')->sum('total_price');
-        $cardSales = $sales->where('payment_method', 'credit card')->sum('total_price') + 
-                     $sales->where('payment_method', 'debit card')->sum('total_price');
+        $cashSales = $sales->where('payment_method', 'cash')->sum('total_amount');
+        $cardSales = $sales->whereIn('payment_method', ['credit card', 'debit card', 'card'])->sum('total_amount');
         $otherSales = $salesTotal - $cashSales - $cardSales;
         
         // Calculate cash variance if shift is closed

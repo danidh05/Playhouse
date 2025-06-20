@@ -29,8 +29,8 @@ class ShiftController extends Controller
     public function showOpen()
     {
         // Check if the cashier already has an active shift
-        $activeShift = Shift::where('user_id', auth()->id())
-            ->whereNull('ending_time')
+        $activeShift = Shift::where('cashier_id', auth()->id())
+            ->whereNull('closed_at')
             ->first();
 
         if ($activeShift) {

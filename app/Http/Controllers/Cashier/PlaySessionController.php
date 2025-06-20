@@ -46,6 +46,11 @@ class PlaySessionController extends Controller
         
         $recentSessions = $recentSessionsQuery->paginate(10)->withQueryString();
         
+        // Load play session count for each child in recent sessions
+        foreach ($recentSessions as $session) {
+            $session->child->play_sessions_count = PlaySession::where('child_id', $session->child_id)->count();
+        }
+        
         return view('cashier.sessions.index', compact('activeSessions', 'recentSessions', 'filter'));
     }
 
@@ -389,14 +394,17 @@ class PlaySessionController extends Controller
             $session->addOns()->detach();
     
             foreach ($request->add_ons as $addOnId => $data) {
-                if (isset($data['qty']) && $data['qty'] > 0) {
+                if (isset($data['qty']) && (float)$data['qty'] > 0) {
                     $addOn = AddOn::find($addOnId);
-                    $subtotal = $addOn->price * (float)$data['qty'];
+                    if ($addOn) {
+                        $qty = (float)$data['qty'];
+                        $subtotal = $addOn->price * $qty;
     
-                    $session->addOns()->attach($addOnId, [
-                        'qty' => (float)$data['qty'],
-                        'subtotal' => $subtotal
-                    ]);
+                        $session->addOns()->attach($addOnId, [
+                            'qty' => $qty,
+                            'subtotal' => $subtotal
+                        ]);
+                    }
                 }
             }
         }
@@ -585,15 +593,9 @@ class PlaySessionController extends Controller
             
             foreach ($request->add_ons as $addOnId => $data) {
                 $addOn = AddOn::find($addOnId);
-                if ($addOn) {
-                    // Check if we received a qty in the data or if it's just an ID
-                    if (is_array($data) && isset($data['qty'])) {
-                        $qty = (float)$data['qty'];
-                        $subtotal = $addOn->price * $qty;
-                    } else {
-                        $qty = 1; // Default quantity
-                        $subtotal = $addOn->price;
-                    }
+                if ($addOn && isset($data['qty']) && (float)$data['qty'] > 0) {
+                    $qty = (float)$data['qty'];
+                    $subtotal = $addOn->price * $qty;
                     
                     $addOnsWithQty[$addOnId] = [
                         'qty' => $qty,
@@ -606,7 +608,7 @@ class PlaySessionController extends Controller
                 $session->addOns()->attach($addOnsWithQty);
             }
         }
-        
+
         return redirect()->route('cashier.sessions.show', $session)
             ->with('success', 'Add-ons updated successfully');
     }
