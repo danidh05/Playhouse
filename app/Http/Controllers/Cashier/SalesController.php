@@ -474,10 +474,27 @@ class SalesController extends Controller
         // Validate request
         $validator = Validator::make($request->all(), [
             'child_id' => 'required|exists:children,id',
-            'add_ons' => 'required|array',
+            'add_ons' => 'required|array|min:1',
             'payment_method' => 'required|string',
             'amount_paid' => 'required|numeric|min:0',
         ]);
+        
+        // Additional validation for add-ons quantities
+        $hasValidAddOns = false;
+        if ($request->has('add_ons') && is_array($request->add_ons)) {
+            foreach ($request->add_ons as $addOnId => $data) {
+                if (isset($data['qty']) && (float)$data['qty'] > 0) {
+                    $hasValidAddOns = true;
+                    break;
+                }
+            }
+        }
+        
+        if (!$hasValidAddOns) {
+            $validator->after(function ($validator) {
+                $validator->errors()->add('add_ons', 'Please select at least one add-on with a quantity greater than 0.');
+            });
+        }
         
         if ($validator->fails()) {
             return redirect()->back()

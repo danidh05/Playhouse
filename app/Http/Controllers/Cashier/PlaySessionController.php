@@ -395,13 +395,17 @@ class PlaySessionController extends Controller
         // Calculate duration in hours for billing (rounded to 2 decimals)
         $durationInHours = round($durationInSeconds / 3600, 2);
         
-        // Cap the billable hours at the planned hours if specified
+        // Only cap the billable hours if the actual time EXCEEDS the planned hours
+        // If they played less than planned, they should only be billed for actual time
         $actualDurationForBilling = $durationInHours;
         $cappedHours = false;
+        
+        // Only cap if they played MORE than planned (not less)
         if ($session->planned_hours > 0 && $durationInHours > $session->planned_hours) {
             $actualDurationForBilling = $session->planned_hours;
             $cappedHours = true;
         }
+        // If they played less than or equal to planned hours, bill for actual time
 
         // Get hourly rate from config
         $hourlyRate = config('play.hourly_rate', 10.00);
@@ -536,7 +540,7 @@ class PlaySessionController extends Controller
             $endTime = Carbon::now();
             $durationHours = max(0, $endTime->diffInMinutes($startTime) / 60);
             
-            // Cap at planned hours if needed
+            // Only cap if they played MORE than planned hours (not less)
             if ($session->planned_hours > 0 && $durationHours > $session->planned_hours) {
                 $actualHours = $session->planned_hours;
                 
@@ -550,7 +554,9 @@ class PlaySessionController extends Controller
                     $session->notes = $noteAboutCapping;
                 }
             } else {
-                $actualHours = number_format($durationHours, 2);
+                // Bill for actual time played (not capped to planned hours if less)
+                // Ensure proper precision for duration
+                $actualHours = round($durationHours, 2);
             }
         }
         
@@ -672,17 +678,23 @@ class PlaySessionController extends Controller
             'status' => 'completed'
         ]);
         
-        // Create sale items for session time and add-ons
-        // For LBP sales, we need to convert the time cost to LBP for the sale item
-        if ($timeCost > 0) {
-            $itemTimeCost = $paymentMethod === 'LBP' ? round($timeCost * $lbpRate, 0) : $timeCost;
+        // Create sale items for session time 
+        // Use the custom total set by cashier, not the calculated time cost
+        if ($totalAmountToStore > 0) {
+            // For the main session item, use the total amount that was set by the cashier
+            $sessionSubtotal = $totalAmountToStore - ($addOnsTotal * ($paymentMethod === 'LBP' ? $lbpRate : 1)) - ($pendingSalesTotal * ($paymentMethod === 'LBP' ? $lbpRate : 1));
+            
+            // If there are no add-ons or pending sales, the session cost is the full amount
+            if ($addOnsTotal == 0 && $pendingSalesTotal == 0) {
+                $sessionSubtotal = $totalAmountToStore;
+            }
             
             \App\Models\SaleItem::create([
                 'sale_id' => $sale->id,
                 'product_id' => null, // No product for session time
                 'quantity' => 1,
-                'unit_price' => $itemTimeCost,
-                'subtotal' => $itemTimeCost,
+                'unit_price' => $sessionSubtotal,
+                'subtotal' => $sessionSubtotal,
                 'description' => 'Play session (' . number_format($actualHours, 2) . ' hours)' . 
                                ($session->discount_pct > 0 ? ' - ' . $session->discount_pct . '% discount applied' : '')
             ]);
