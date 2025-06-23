@@ -77,11 +77,11 @@
                     <div class="mb-4">
                         <label class="block text-gray-700 mb-2">Payment Method</label>
                         <div class="flex items-center space-x-4">
-                            @foreach(config('play.payment_methods', ['USD' => 'USD', 'LBP' => 'LBP']) as $code => $name)
+                            @foreach(config('play.payment_methods', ['USD', 'LBP']) as $method)
                             <label class="inline-flex items-center">
-                                <input type="radio" name="payment_method" value="{{ $code }}"
+                                <input type="radio" name="payment_method" value="{{ $method }}"
                                     class="form-radio payment-method" @if($loop->first) checked @endif>
-                                <span class="ml-2">{{ $name }}</span>
+                                <span class="ml-2">{{ $method }}</span>
                             </label>
                             @endforeach
                         </div>

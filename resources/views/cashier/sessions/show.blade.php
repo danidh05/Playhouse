@@ -216,15 +216,14 @@
                 <h2 class="text-sm font-medium text-gray-500 mb-2">PAYMENT INFORMATION</h2>
                 <div class="border rounded-lg overflow-hidden">
                     @php
-                        // Use the eager-loaded sale relationship
-                        $sessionSale = $session->sale;
-                        $sessionAmountPaid = $sessionSale ? $sessionSale->amount_paid : $session->amount_paid;
-                        $sessionPaymentMethod = $sessionSale ? $sessionSale->payment_method : $session->payment_method;
+                        // Use total_cost from session for revenue tracking consistency
+                        $sessionTotalCost = $session->total_cost;
+                        $sessionPaymentMethod = $session->payment_method;
                     @endphp
                     <div class="grid grid-cols-3 border-b">
                         <div class="py-2 px-3 bg-gray-50 font-medium text-xs text-gray-600">Status</div>
                         <div class="py-2 px-3 col-span-2">
-                            @if($session->ended_at && $sessionAmountPaid)
+                            @if($session->ended_at && $sessionTotalCost)
                                 <span class="px-2 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800">Paid</span>
                             @elseif($session->ended_at)
                                 <span class="px-2 py-1 text-xs font-semibold rounded-full bg-red-100 text-red-800">Not Paid</span>
@@ -233,14 +232,14 @@
                             @endif
                         </div>
                     </div>
-                    @if($sessionAmountPaid)
+                    @if($sessionTotalCost)
                     <div class="grid grid-cols-3 border-b">
-                        <div class="py-2 px-3 bg-gray-50 font-medium text-xs text-gray-600">Amount Paid</div>
+                        <div class="py-2 px-3 bg-gray-50 font-medium text-xs text-gray-600">Total Cost</div>
                         <div class="py-2 px-3 col-span-2">
                             @if($sessionPaymentMethod === 'LBP')
-                                {{ number_format($sessionAmountPaid) }} L.L
+                                {{ number_format($sessionTotalCost) }} L.L
                             @else
-                                ${{ number_format($sessionAmountPaid, 2) }}
+                                ${{ number_format($sessionTotalCost, 2) }}
                             @endif
                         </div>
                     </div>

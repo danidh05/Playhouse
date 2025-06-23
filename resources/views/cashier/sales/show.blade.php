@@ -25,10 +25,13 @@
             </svg>
             Print Receipt
         </button>
-        
-        <button onclick="showDeleteConfirmation()" class="ml-2 px-3 py-1 text-xs bg-red-600 text-white rounded flex items-center">
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+
+        <button onclick="showDeleteConfirmation()"
+            class="ml-2 px-3 py-1 text-xs bg-red-600 text-white rounded flex items-center">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24"
+                stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                    d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
             </svg>
             Delete Receipt
         </button>
@@ -95,133 +98,134 @@
 
                         // Calculate total from actual items to ensure accuracy
                         $calculatedTotal = $sale->items->sum('subtotal');
-                        
+
                         // Add child sales totals if they exist
                         if ($sale->child_sales && $sale->child_sales->count() > 0) {
-                            foreach ($sale->child_sales as $childSale) {
-                                $calculatedTotal += $childSale->items->sum('subtotal');
-                            }
+                        foreach ($sale->child_sales as $childSale) {
+                        $calculatedTotal += $childSale->items->sum('subtotal');
                         }
-                        
+                        }
+
                         // Use calculated total if it differs significantly from stored total
                         if (abs($sale->total_amount - $calculatedTotal) > 1) {
-                            $displayTotal = $calculatedTotal;
+                        $displayTotal = $calculatedTotal;
                         } else {
-                            $displayTotal = $sale->total_amount;
+                        $displayTotal = $sale->total_amount;
                         }
-                        
+
                         $suffix = $sale->payment_method === 'LBP' ? ' L.L' : '';
-                        
+
                         // Check for custom pricing from session notes
                         $hasCustomPrice = false;
-                        if ($sale->play_session && $sale->play_session->notes && strpos($sale->play_session->notes, 'Manual price set by cashier') !== false) {
-                            $hasCustomPrice = true;
+                        if ($sale->play_session && $sale->play_session->notes && strpos($sale->play_session->notes,
+                        'Manual price set by cashier') !== false) {
+                        $hasCustomPrice = true;
                         }
                         @endphp
 
-                            @if($sale->play_session)
-                            <!-- Display all sale items (including session time, add-ons, and products) -->
-                            @foreach($sale->items as $item)
-                            <tr>
-                                <td class="px-4 py-3 whitespace-nowrap">
-                                    <div class="text-sm font-medium text-gray-900">
-                                        @if($item->product_id)
-                                            {{ $item->product->name }}
-                                        @elseif($item->description)
-                                            {{ $item->description }}
-                                        @else
-                                            Item
-                                        @endif
-                                    </div>
-                                    @if($item->description && strpos($item->description, 'Play session') !== false)
-                                        <div class="text-xs text-gray-500">
-                                            @if($sale->play_session->discount_pct > 0)
-                                            ({{ $sale->play_session->discount_pct }}% discount applied)
-                                            @endif
-                                        </div>
-                                    @elseif($item->description && strpos($item->description, 'add-on') !== false)
-                                        <div class="text-xs text-gray-500">Add-on</div>
-                                    @elseif($item->product_id)
-                                        <div class="text-xs text-gray-500">Product</div>
-                                    @endif
-                                </td>
-                                <td class="px-4 py-3 whitespace-nowrap text-right text-sm">
+                        @if($sale->play_session)
+                        <!-- Display all sale items (including session time, add-ons, and products) -->
+                        @foreach($sale->items as $item)
+                        <tr>
+                            <td class="px-4 py-3 whitespace-nowrap">
+                                <div class="text-sm font-medium text-gray-900">
                                     @if($item->product_id)
-                                        {{ number_format($item->unit_price, 2) }}{{ $suffix }}
-                                    @elseif(strpos($item->description, 'Play session') !== false)
-                                        @if($hasCustomPrice)
-                                        <span class="text-blue-600 font-medium">Flat Rate</span>
-                                        @else
-                                        @if($sale->payment_method === 'LBP')
-                                        {{ number_format(config('play.hourly_rate', 10.00) * $lbpRate, 0) }}{{ $suffix }}/hr
-                                        @else
-                                        ${{ number_format(config('play.hourly_rate', 10.00), 2) }}/hr
-                                        @endif
-                                        @endif
+                                    {{ $item->product->name }}
+                                    @elseif($item->description)
+                                    {{ $item->description }}
                                     @else
-                                        {{ number_format($item->unit_price, 2) }}{{ $suffix }}
+                                    Item
                                     @endif
-                                </td>
-                                <td class="px-4 py-3 whitespace-nowrap text-right text-sm">
-                                    {{ $item->quantity }}
-                                </td>
-                                <td class="px-4 py-3 whitespace-nowrap text-right text-sm font-medium">
-                                    {{ number_format($item->subtotal, 2) }}{{ $suffix }}
-                                </td>
-                            </tr>
-                            @endforeach
+                                </div>
+                                @if($item->description && strpos($item->description, 'Play session') !== false)
+                                <div class="text-xs text-gray-500">
+                                    @if($sale->play_session->discount_pct > 0)
+                                    ({{ $sale->play_session->discount_pct }}% discount applied)
+                                    @endif
+                                </div>
+                                @elseif($item->description && strpos($item->description, 'add-on') !== false)
+                                <div class="text-xs text-gray-500">Add-on</div>
+                                @elseif($item->product_id)
+                                <div class="text-xs text-gray-500">Product</div>
+                                @endif
+                            </td>
+                            <td class="px-4 py-3 whitespace-nowrap text-right text-sm">
+                                @if($item->product_id)
+                                {{ number_format($item->unit_price, 2) }}{{ $suffix }}
+                                @elseif(strpos($item->description, 'Play session') !== false)
+                                @if($hasCustomPrice)
+                                <span class="text-blue-600 font-medium">Flat Rate</span>
+                                @else
+                                @if($sale->payment_method === 'LBP')
+                                {{ number_format(config('play.hourly_rate', 10.00) * $lbpRate, 0) }}{{ $suffix }}/hr
+                                @else
+                                ${{ number_format(config('play.hourly_rate', 10.00), 2) }}/hr
+                                @endif
+                                @endif
+                                @else
+                                {{ number_format($item->unit_price, 2) }}{{ $suffix }}
+                                @endif
+                            </td>
+                            <td class="px-4 py-3 whitespace-nowrap text-right text-sm">
+                                {{ $item->quantity }}
+                            </td>
+                            <td class="px-4 py-3 whitespace-nowrap text-right text-sm font-medium">
+                                {{ number_format($item->subtotal, 2) }}{{ $suffix }}
+                            </td>
+                        </tr>
+                        @endforeach
 
-                            <!-- Include child sales' products as part of the main sale -->
-                            @if($sale->child_sales && $sale->child_sales->count() > 0)
-                                @foreach($sale->child_sales as $childSale)
-                                    @foreach($childSale->items as $item)
-                                    <tr>
-                                        <td class="px-4 py-3 whitespace-nowrap">
-                                            <div class="text-sm font-medium text-gray-900">{{ $item->product->name }}</div>
-                                            <div class="text-xs text-gray-500">Product (from session)</div>
-                                        </td>
-                                        <td class="px-4 py-3 whitespace-nowrap text-right text-sm">
-                                            {{ number_format($item->unit_price, 2) }}{{ $suffix }}
-                                        </td>
-                                        <td class="px-4 py-3 whitespace-nowrap text-right text-sm">
-                                            {{ $item->quantity }}
-                                        </td>
-                                        <td class="px-4 py-3 whitespace-nowrap text-right text-sm font-medium">
-                                            {{ number_format($item->subtotal, 2) }}{{ $suffix }}
-                                        </td>
-                                    </tr>
-                                    @endforeach
-                                @endforeach
-                            @endif
-                            @else
-                            <!-- Display regular product items -->
-                            @foreach($sale->items as $item)
-                            <tr class="border-b">
-                                <td class="px-4 py-3">
-                                    @if($item->product_id)
-                                        {{ $item->product->name }}
-                                    @elseif($item->add_on_id)
-                                        {{ $item->addOn->name }} <span class="text-xs text-primary font-medium">(Add-on)</span>
-                                    @endif
-                                </td>
-                                <td class="px-4 py-3 text-center">{{ $item->quantity }}</td>
-                                <td class="px-4 py-3 text-right">
-                                    @if($sale->payment_method === 'LBP')
-                                    {{ number_format($item->unit_price) }} L.L
-                                    @else
-                                    ${{ number_format($item->unit_price, 2) }}
-                                    @endif
-                                </td>
-                                <td class="px-4 py-3 text-right">
-                                    @if($sale->payment_method === 'LBP')
-                                    {{ number_format($item->subtotal) }} L.L
-                                    @else
-                                    ${{ number_format($item->subtotal, 2) }}
-                                    @endif
-                                </td>
-                            </tr>
-                            @endforeach
-                            @endif
+                        <!-- Include child sales' products as part of the main sale -->
+                        @if($sale->child_sales && $sale->child_sales->count() > 0)
+                        @foreach($sale->child_sales as $childSale)
+                        @foreach($childSale->items as $item)
+                        <tr>
+                            <td class="px-4 py-3 whitespace-nowrap">
+                                <div class="text-sm font-medium text-gray-900">{{ $item->product->name }}</div>
+                                <div class="text-xs text-gray-500">Product (from session)</div>
+                            </td>
+                            <td class="px-4 py-3 whitespace-nowrap text-right text-sm">
+                                {{ number_format($item->unit_price, 2) }}{{ $suffix }}
+                            </td>
+                            <td class="px-4 py-3 whitespace-nowrap text-right text-sm">
+                                {{ $item->quantity }}
+                            </td>
+                            <td class="px-4 py-3 whitespace-nowrap text-right text-sm font-medium">
+                                {{ number_format($item->subtotal, 2) }}{{ $suffix }}
+                            </td>
+                        </tr>
+                        @endforeach
+                        @endforeach
+                        @endif
+                        @else
+                        <!-- Display regular product items -->
+                        @foreach($sale->items as $item)
+                        <tr class="border-b">
+                            <td class="px-4 py-3">
+                                @if($item->product_id)
+                                {{ $item->product->name }}
+                                @elseif($item->add_on_id)
+                                {{ $item->addOn->name }} <span class="text-xs text-primary font-medium">(Add-on)</span>
+                                @endif
+                            </td>
+                            <td class="px-4 py-3 text-center">{{ $item->quantity }}</td>
+                            <td class="px-4 py-3 text-right">
+                                @if($sale->payment_method === 'LBP')
+                                {{ number_format($item->unit_price) }} L.L
+                                @else
+                                ${{ number_format($item->unit_price, 2) }}
+                                @endif
+                            </td>
+                            <td class="px-4 py-3 text-right">
+                                @if($sale->payment_method === 'LBP')
+                                {{ number_format($item->subtotal) }} L.L
+                                @else
+                                ${{ number_format($item->subtotal, 2) }}
+                                @endif
+                            </td>
+                        </tr>
+                        @endforeach
+                        @endif
                     </tbody>
                     <tfoot>
                         <tr>
@@ -243,34 +247,24 @@
         </div>
 
         <!-- Payment Details -->
-        <div class="border-t p-6">
-            <h2 class="text-lg font-medium text-gray-800 mb-4">Payment Details</h2>
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                    <p class="text-sm text-gray-500">Method:</p>
-                    <p class="font-medium">
+        <div class="bg-gray-50 p-4 rounded-lg">
+            <h3 class="font-medium mb-3">Payment Information</h3>
+            <div class="space-y-2">
+                <div class="flex justify-between">
+                    <p class="text-sm text-gray-500">Total Cost:</p>
+                    <p class="text-sm font-medium">
                         @if($sale->payment_method === 'LBP')
-                        Lebanese Pounds (L.L)
-                        @elseif($sale->payment_method === 'USD')
-                        US Dollars ($)
+                        {{ number_format($sale->total_amount) }} L.L
                         @else
-                        {{ $sale->payment_method }}
+                        ${{ number_format($sale->total_amount, 2) }}
                         @endif
                     </p>
                 </div>
-                <div>
-                    <p class="text-sm text-gray-500">Currency:</p>
-                    <p class="font-medium">
-                        @if($sale->payment_method === 'LBP')
-                        LBP
-                        @else
-                        {{ strtoupper($sale->currency ?? 'USD') }}
-                        @endif
-                    </p>
-                </div>
-                <div>
+
+                @if($sale->amount_paid)
+                <div class="flex justify-between">
                     <p class="text-sm text-gray-500">Amount Paid:</p>
-                    <p class="font-medium">
+                    <p class="text-sm font-medium">
                         @if($sale->payment_method === 'LBP')
                         {{ number_format($sale->amount_paid) }} L.L
                         @else
@@ -278,48 +272,39 @@
                         @endif
                     </p>
                 </div>
-                <div>
-                    <p class="text-sm text-gray-500">Exchange Rate:</p>
-                    <p class="font-medium">
-                        @if($sale->payment_method === 'LBP')
-                        1 USD = {{ number_format(config('play.lbp_exchange_rate', 90000)) }} L.L
-                        @else
-                        N/A
-                        @endif
-                    </p>
-                </div>
 
+                @php
+                // Calculate change from items total (not including markup)
+                $itemsTotal = $sale->items->sum('subtotal');
+                $childSalesTotal = $sale->child_sales ? $sale->child_sales->sum('total_amount') : 0;
+                $displayTotal = $itemsTotal + $childSalesTotal;
 
-                <div>
-                    <p class="text-sm text-gray-500">Total:</p>
-                    <p class="font-medium">
-                        @if($sale->payment_method === 'LBP')
-                        {{ number_format($displayTotal) }} L.L
-                        @else
-                        ${{ number_format($displayTotal, 2) }}
-                        @endif
-                        @if($hasCustomPrice)
-                        <span class="text-xs text-blue-600 ml-2">(Custom price)</span>
-                        @endif
-                    </p>
-                </div>
-                <div>
-                    <p class="text-sm text-gray-500">Change:</p>
-                    <p class="font-medium">
-                        @php
-                        // Calculate change using the same display total for consistency
-                        $change = $sale->amount_paid - $displayTotal;
-                        @endphp
+                $change = $sale->amount_paid - $displayTotal;
+                @endphp
 
-                        @if($change > 0)
+                @if($change > 0)
+                <div class="flex justify-between border-t border-gray-200 pt-2">
+                    <p class="text-sm text-gray-500">Change Given:</p>
+                    <p class="text-sm font-medium text-green-600">
                         @if($sale->payment_method === 'LBP')
                         {{ number_format($change) }} L.L
                         @else
                         ${{ number_format($change, 2) }}
                         @endif
-                        @else
-                        -
-                        @endif
+                    </p>
+                </div>
+                @endif
+                @endif
+
+                <div class="flex justify-between border-t border-gray-200 pt-2">
+                    <p class="text-sm text-gray-500">Payment Method:</p>
+                    <p class="text-sm font-medium">
+                        <span
+                            class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
+                            {{ $sale->payment_method === 'LBP' ? 'bg-green-100 text-green-800' : 
+                               ($sale->payment_method === 'card' ? 'bg-blue-100 text-blue-800' : 'bg-gray-100 text-gray-800') }}">
+                            {{ $sale->payment_method }}
+                        </span>
                     </p>
                 </div>
             </div>
@@ -336,10 +321,11 @@
                     <div class="flex justify-between items-center">
                         <div>
                             <p class="text-sm font-medium">This is a product sale linked to a play session checkout</p>
-                            <p class="text-xs text-gray-600">Main sale: #{{ $sale->parent_sale->id }} ({{ $sale->parent_sale->created_at->format('M d, Y h:i A') }})</p>
+                            <p class="text-xs text-gray-600">Main sale: #{{ $sale->parent_sale->id }}
+                                ({{ $sale->parent_sale->created_at->format('M d, Y h:i A') }})</p>
                         </div>
-                        <a href="{{ route('cashier.sales.show', $sale->parent_sale->id) }}" 
-                           class="px-3 py-1 text-xs bg-blue-500 text-white rounded hover:bg-blue-600">
+                        <a href="{{ route('cashier.sales.show', $sale->parent_sale->id) }}"
+                            class="px-3 py-1 text-xs bg-blue-500 text-white rounded hover:bg-blue-600">
                             View Main Sale
                         </a>
                     </div>
@@ -351,11 +337,13 @@
             <div>
                 <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
                     <p class="text-sm mb-2">
-                        <strong>Note:</strong> This sale includes {{ $sale->child_sales->count() }} product transactions that were added during the play session.
+                        <strong>Note:</strong> This sale includes {{ $sale->child_sales->count() }} product transactions
+                        that were added during the play session.
                         The products are already included in the items list above.
                     </p>
                     <p class="text-xs text-gray-600">
-                        For reference, these products were added in {{ $sale->child_sales->count() }} separate transactions during the session,
+                        For reference, these products were added in {{ $sale->child_sales->count() }} separate
+                        transactions during the session,
                         but have been combined into this single bill for payment at checkout.
                     </p>
                 </div>
@@ -394,39 +382,39 @@
                         <span class="text-sm text-gray-500 ml-1">total sessions</span>
                     </p>
                 </div>
-                
+
                 @if(!empty($sale->child->marketing_sources))
                 <div class="col-span-1 md:col-span-2 mt-3">
                     <p class="text-sm text-gray-500">Marketing Sources:</p>
                     <div class="flex flex-wrap gap-2 mt-1">
                         @foreach($sale->child->marketing_sources as $source)
-                            <span class="px-2 py-1 text-xs bg-blue-100 text-blue-800 rounded-full">
-                                @switch($source)
-                                    @case('facebook')
-                                        Facebook
-                                        @break
-                                    @case('instagram')
-                                        Instagram
-                                        @break
-                                    @case('tiktok')
-                                        TikTok
-                                        @break
-                                    @case('passing_by')
-                                        Saw from outside
-                                        @break
-                                    @case('mascot')
-                                        Mascot outside
-                                        @break
-                                    @case('word_of_mouth')
-                                        Word of mouth
-                                        @break
-                                    @default
-                                        {{ $source }}
-                                @endswitch
-                            </span>
+                        <span class="px-2 py-1 text-xs bg-blue-100 text-blue-800 rounded-full">
+                            @switch($source)
+                            @case('facebook')
+                            Facebook
+                            @break
+                            @case('instagram')
+                            Instagram
+                            @break
+                            @case('tiktok')
+                            TikTok
+                            @break
+                            @case('passing_by')
+                            Saw from outside
+                            @break
+                            @case('mascot')
+                            Mascot outside
+                            @break
+                            @case('word_of_mouth')
+                            Word of mouth
+                            @break
+                            @default
+                            {{ $source }}
+                            @endswitch
+                        </span>
                         @endforeach
                     </div>
-                    
+
                     @if(!empty($sale->child->marketing_notes))
                     <p class="text-xs text-gray-600 mt-2">{{ $sale->child->marketing_notes }}</p>
                     @endif
@@ -441,25 +429,26 @@
         @php
         // Duration for display (difference between start and end time)
         if ($sale->play_session->ended_at) {
-            $sessionDuration = $sale->play_session->started_at->diffAsCarbonInterval($sale->play_session->ended_at)->cascade();
-            
-            // Calculate billed hours for display
-            $actualMinutes = $sale->play_session->started_at->diffInMinutes($sale->play_session->ended_at);
-            $displayHours = round($actualMinutes / 60, 2);
-            
-            // Use billed_hours if available, otherwise calculate from actual time
-            if ($sale->play_session->billed_hours !== null) {
-                $billedHours = $sale->play_session->billed_hours;
-            } else {
-                // Legacy calculation - use actual time or planned time, whichever is appropriate
-                $billedHours = $displayHours;
-            }
-            
-            $billTimeDisplay = number_format($billedHours, 2) . 'h';
+        $sessionDuration =
+        $sale->play_session->started_at->diffAsCarbonInterval($sale->play_session->ended_at)->cascade();
+
+        // Calculate billed hours for display
+        $actualMinutes = $sale->play_session->started_at->diffInMinutes($sale->play_session->ended_at);
+        $displayHours = round($actualMinutes / 60, 2);
+
+        // Use billed_hours if available, otherwise calculate from actual time
+        if ($sale->play_session->billed_hours !== null) {
+        $billedHours = $sale->play_session->billed_hours;
         } else {
-            $sessionDuration = $sale->play_session->started_at->diffAsCarbonInterval(now())->cascade();
-            $displayHours = 0;
-            $billTimeDisplay = 'Session ongoing';
+        // Legacy calculation - use actual time or planned time, whichever is appropriate
+        $billedHours = $displayHours;
+        }
+
+        $billTimeDisplay = number_format($billedHours, 2) . 'h';
+        } else {
+        $sessionDuration = $sale->play_session->started_at->diffAsCarbonInterval(now())->cascade();
+        $displayHours = 0;
+        $billTimeDisplay = 'Session ongoing';
         }
         @endphp
         <div class="border-t p-6">
@@ -523,13 +512,14 @@
                         <span class="text-blue-600">Custom price applied</span>
                         @else
                         {{ $billTimeDisplay }}
-                        @if($sale->play_session->planned_hours > 0 && $displayHours != $sale->play_session->planned_hours)
+                        @if($sale->play_session->planned_hours > 0 && $displayHours !=
+                        $sale->play_session->planned_hours)
                         <span class="text-xs ml-2 text-gray-500">(Actual time played)</span>
                         @endif
                         @endif
                     </p>
                 </div>
-                
+
                 <div>
                     <p class="text-sm text-gray-500">Hourly Rate:</p>
                     <p class="font-medium">
@@ -658,21 +648,25 @@ body {
         <div class="flex justify-between items-center mb-4">
             <h2 class="text-xl font-bold text-red-600">Delete Confirmation</h2>
             <button onclick="hideDeleteConfirmation()" class="text-gray-500 hover:text-gray-700">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24"
+                    stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
                 </svg>
             </button>
         </div>
-        
+
         <div class="mb-6">
             <p class="text-gray-700 mb-2">Are you sure you want to delete this sale receipt?</p>
-            
+
             @if($sale->play_session_id)
             <div class="bg-yellow-50 border-l-4 border-yellow-500 p-4">
                 <div class="flex">
                     <div class="flex-shrink-0">
-                        <svg class="h-5 w-5 text-yellow-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
-                            <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd" />
+                        <svg class="h-5 w-5 text-yellow-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"
+                            fill="currentColor">
+                            <path fill-rule="evenodd"
+                                d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z"
+                                clip-rule="evenodd" />
                         </svg>
                     </div>
                     <div class="ml-3">
@@ -683,12 +677,15 @@ body {
                 </div>
             </div>
             @endif
-            
+
             <div class="mt-4 bg-red-50 border-l-4 border-red-500 p-4">
                 <div class="flex">
                     <div class="flex-shrink-0">
-                        <svg class="h-5 w-5 text-red-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
-                            <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd" />
+                        <svg class="h-5 w-5 text-red-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"
+                            fill="currentColor">
+                            <path fill-rule="evenodd"
+                                d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z"
+                                clip-rule="evenodd" />
                         </svg>
                     </div>
                     <div class="ml-3">
@@ -699,9 +696,10 @@ body {
                 </div>
             </div>
         </div>
-        
+
         <div class="flex justify-end space-x-3">
-            <button onclick="hideDeleteConfirmation()" class="px-4 py-2 bg-gray-300 text-gray-800 rounded hover:bg-gray-400">
+            <button onclick="hideDeleteConfirmation()"
+                class="px-4 py-2 bg-gray-300 text-gray-800 rounded hover:bg-gray-400">
                 Cancel
             </button>
             <form action="{{ route('cashier.sales.destroy', $sale->id) }}" method="POST">
@@ -716,12 +714,12 @@ body {
 </div>
 
 <script>
-    function showDeleteConfirmation() {
-        document.getElementById('delete-modal').classList.remove('hidden');
-    }
-    
-    function hideDeleteConfirmation() {
-        document.getElementById('delete-modal').classList.add('hidden');
-    }
+function showDeleteConfirmation() {
+    document.getElementById('delete-modal').classList.remove('hidden');
+}
+
+function hideDeleteConfirmation() {
+    document.getElementById('delete-modal').classList.add('hidden');
+}
 </script>
 @endsection

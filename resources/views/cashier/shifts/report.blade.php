@@ -54,7 +54,7 @@
                         <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Started</th>
                         <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Ended</th>
                         <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Duration</th>
-                        <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount Paid</th>
+                        <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total Cost</th>
                         <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Payment</th>
                     </tr>
                 </thead>
@@ -75,14 +75,14 @@
                             @endif
                         </td>
                         <td class="px-4 py-2">
-                            @if($sale->amount_paid)
+                            @if($sale->play_session && $sale->play_session->total_cost)
                                 @if($sale->payment_method === 'LBP')
-                                    {{ number_format($sale->amount_paid) }} L.L
+                                    {{ number_format($sale->play_session->total_cost) }} L.L
                                 @else
-                                    ${{ number_format($sale->amount_paid, 2) }}
+                                    ${{ number_format($sale->play_session->total_cost, 2) }}
                                 @endif
                             @else
-                                <span class="text-red-600">Not Paid</span>
+                                <span class="text-red-600">Not Calculated</span>
                             @endif
                         </td>
                         <td class="px-4 py-2">{{ $sale->payment_method }}</td>
@@ -111,7 +111,7 @@
                         <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Product</th>
                         <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Quantity</th>
                         <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Unit Price</th>
-                        <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount Paid</th>
+                        <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total Cost</th>
                         <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Payment</th>
                         <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Time</th>
                     </tr>
@@ -139,14 +139,14 @@
                             @endforeach
                         </td>
                         <td class="px-4 py-2">
-                            @if($sale->amount_paid)
+                            @if($sale->total_amount)
                                 @if($sale->payment_method === 'LBP')
-                                    {{ number_format($sale->amount_paid) }} L.L
+                                    {{ number_format($sale->total_amount) }} L.L
                                 @else
-                                    ${{ number_format($sale->amount_paid, 2) }}
+                                    ${{ number_format($sale->total_amount, 2) }}
                                 @endif
                             @else
-                                <span class="text-red-600">Not Paid</span>
+                                <span class="text-red-600">Not Calculated</span>
                             @endif
                         </td>
                         <td class="px-4 py-2">{{ $sale->payment_method }}</td>

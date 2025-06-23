@@ -141,17 +141,25 @@ class ShiftController extends Controller
         $playSessionSales = $allSales->whereNotNull('play_session_id');
         $productSales = $allSales->whereNull('play_session_id');
         
-        // 4. Calculate totals without double-counting using ACTUAL PAID AMOUNTS
-        $sessionsTotal = $playSessionSales->whereNotNull('amount_paid')->sum('amount_paid');
+        // 4. Calculate totals without double-counting using TOTAL COST for sessions
+        $sessionsTotal = $playSessionSales->filter(function($sale) {
+            return $sale->play_session && $sale->play_session->total_cost;
+        })->sum(function($sale) {
+            return $sale->play_session->total_cost;
+        });
         $salesTotal = $productSales->whereNotNull('amount_paid')->sum('amount_paid');
         $totalRevenue = $sessionsTotal + $salesTotal;
         
-        // Payment method breakdown using ACTUAL PAID AMOUNTS
+        // Payment method breakdown using TOTAL COST for sessions
         $paymentMethods = config('play.payment_methods', ['Cash', 'Card', 'Transfer', 'LBP']);
         $paymentBreakdown = [];
         
         foreach ($paymentMethods as $method) {
-            $sessionAmount = $playSessionSales->where('payment_method', $method)->whereNotNull('amount_paid')->sum('amount_paid');
+            $sessionAmount = $playSessionSales->where('payment_method', $method)->filter(function($sale) {
+                return $sale->play_session && $sale->play_session->total_cost;
+            })->sum(function($sale) {
+                return $sale->play_session->total_cost;
+            });
             $salesAmount = $productSales->where('payment_method', $method)->whereNotNull('amount_paid')->sum('amount_paid');
             $totalAmount = $sessionAmount + $salesAmount;
             
@@ -225,8 +233,12 @@ class ShiftController extends Controller
         $playSessionSales = $allSales->whereNotNull('play_session_id');
         $productSales = $allSales->whereNull('play_session_id');
         
-        // Calculate totals without double-counting using ACTUAL PAID AMOUNTS
-        $sessionsTotal = $playSessionSales->whereNotNull('amount_paid')->sum('amount_paid');
+        // Calculate totals without double-counting using TOTAL COST for sessions
+        $sessionsTotal = $playSessionSales->filter(function($sale) {
+            return $sale->play_session && $sale->play_session->total_cost;
+        })->sum(function($sale) {
+            return $sale->play_session->total_cost;
+        });
         $salesTotal = $productSales->whereNotNull('amount_paid')->sum('amount_paid');
         $totalRevenue = $sessionsTotal + $salesTotal;
         

@@ -136,19 +136,18 @@
                             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                                 @if($session->ended_at)
                                     @php
-                                        // Use eager-loaded sale relationship
-                                        $sale = $session->sale;
-                                        $amountPaid = $sale ? $sale->amount_paid : $session->amount_paid;
-                                        $paymentMethod = $sale ? $sale->payment_method : $session->payment_method;
+                                        // Use total_cost from session for revenue calculation (not amount paid which can include change)
+                                        $totalCost = $session->total_cost;
+                                        $paymentMethod = $session->payment_method;
                                     @endphp
-                                    @if($amountPaid)
+                                    @if($totalCost)
                                         @if($paymentMethod === 'LBP')
-                                            {{ number_format($amountPaid) }} L.L
+                                            {{ number_format($totalCost) }} L.L
                                         @else
-                                            ${{ number_format($amountPaid, 2) }}
+                                            ${{ number_format($totalCost, 2) }}
                                         @endif
                                     @else
-                                        <span class="text-red-600">Not Paid</span>
+                                        <span class="text-red-600">Not Calculated</span>
                                     @endif
                                 @else
                                     <span class="text-yellow-600">In Progress</span>
@@ -304,19 +303,18 @@
                             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                                 @if($session->ended_at)
                                     @php
-                                        // Use eager-loaded sale relationship
-                                        $sale = $session->sale;
-                                        $amountPaid = $sale ? $sale->amount_paid : $session->amount_paid;
-                                        $paymentMethod = $sale ? $sale->payment_method : $session->payment_method;
+                                        // Use total_cost from session for revenue calculation (not amount paid which can include change)
+                                        $totalCost = $session->total_cost;
+                                        $paymentMethod = $session->payment_method;
                                     @endphp
-                                    @if($amountPaid)
+                                    @if($totalCost)
                                         @if($paymentMethod === 'LBP')
-                                            {{ number_format($amountPaid) }} L.L
+                                            {{ number_format($totalCost) }} L.L
                                         @else
-                                            ${{ number_format($amountPaid, 2) }}
+                                            ${{ number_format($totalCost, 2) }}
                                         @endif
                                     @else
-                                        <span class="text-red-600">Not Paid</span>
+                                        <span class="text-red-600">Not Calculated</span>
                                     @endif
                                 @else
                                     <span class="text-yellow-600">In Progress</span>
