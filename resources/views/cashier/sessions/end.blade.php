@@ -345,18 +345,17 @@ document.addEventListener('DOMContentLoaded', function() {
     
     if (useCalculatedTotalButton && customTotalInput && totalAmountInput) {
         useCalculatedTotalButton.addEventListener('click', function() {
-            let calculatedValue;
-            
-            // Determine if we need to apply exchange rate
+            // The totalAmount already comes properly converted from the controller
+            // No need to apply exchange rate conversion here
             const isLBP = "{{ request('payment_method') }}" === 'LBP';
-            const exchangeRate = {{ config('play.lbp_exchange_rate', 90000) }};
+            let calculatedValue = parseFloat(totalAmountInput.value);
             
             if (isLBP) {
-                // Convert to LBP and round to nearest thousand
-                calculatedValue = Math.round(parseFloat(totalAmountInput.value) * exchangeRate);
+                // Round to whole number for LBP (no decimals)
+                calculatedValue = Math.round(calculatedValue);
             } else {
-                // Use USD value with 2 decimal places
-                calculatedValue = parseFloat(totalAmountInput.value).toFixed(2);
+                // Use 2 decimal places for USD
+                calculatedValue = calculatedValue.toFixed(2);
             }
             
             customTotalInput.value = calculatedValue;

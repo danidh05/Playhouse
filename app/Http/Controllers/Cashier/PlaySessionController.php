@@ -622,13 +622,13 @@ class PlaySessionController extends Controller
         // Store amounts in the original currency to preserve cashier's exact input
         if ($paymentMethod === 'LBP') {
             // For LBP payments, store the LBP amounts directly (don't convert to USD)
-            $totalAmountToStore = round($request->custom_total, 0); // LBP amounts (no decimals)
+            $totalAmountToStore = round($request->total_cost, 0); // LBP amounts (no decimals)
             $amountPaidToStore = round($request->amount_paid, 0); // LBP amounts (no decimals)
             
             // Add a note if the manual price differs from the calculated price
             $calculatedAmountLbp = round($calculatedTotalCost * $lbpRate);
-            if (abs($request->custom_total - $calculatedAmountLbp) > 0.01 * $calculatedAmountLbp) {
-                $customPriceNote = "Note: Manual price set by cashier: " . number_format($request->custom_total) . " LBP. ";
+            if (abs($request->total_cost - $calculatedAmountLbp) > 0.01 * $calculatedAmountLbp) {
+                $customPriceNote = "Note: Manual price set by cashier: " . number_format($request->total_cost) . " LBP. ";
                 $customPriceNote .= "Standard calculated price would have been: " . number_format($calculatedAmountLbp) . " LBP.";
                 
                 if ($session->notes) {
@@ -639,7 +639,7 @@ class PlaySessionController extends Controller
             }
         } else {
             // For USD payments, store USD amounts
-            $totalAmountToStore = round($request->custom_total, 2);
+            $totalAmountToStore = round($request->total_cost, 2);
             $amountPaidToStore = round($request->amount_paid, 2);
             
             // Add a note if the manual price differs from the calculated price
