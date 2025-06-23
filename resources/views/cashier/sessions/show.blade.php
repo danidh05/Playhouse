@@ -216,14 +216,15 @@
                 <h2 class="text-sm font-medium text-gray-500 mb-2">PAYMENT INFORMATION</h2>
                 <div class="border rounded-lg overflow-hidden">
                     @php
-                        // Use total_cost from session for revenue tracking consistency
-                        $sessionTotalCost = $session->total_cost;
-                        $sessionPaymentMethod = $session->payment_method;
+                        // Use the eager-loaded sale relationship
+                        $sessionSale = $session->sale;
+                        $sessionAmountPaid = $sessionSale ? $sessionSale->amount_paid : $session->amount_paid;
+                        $sessionPaymentMethod = $sessionSale ? $sessionSale->payment_method : $session->payment_method;
                     @endphp
                     <div class="grid grid-cols-3 border-b">
                         <div class="py-2 px-3 bg-gray-50 font-medium text-xs text-gray-600">Status</div>
                         <div class="py-2 px-3 col-span-2">
-                            @if($session->ended_at && $sessionTotalCost)
+                            @if($session->ended_at && $sessionAmountPaid)
                                 <span class="px-2 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800">Paid</span>
                             @elseif($session->ended_at)
                                 <span class="px-2 py-1 text-xs font-semibold rounded-full bg-red-100 text-red-800">Not Paid</span>
@@ -232,17 +233,46 @@
                             @endif
                         </div>
                     </div>
-                    @if($sessionTotalCost)
+                    @if($sessionAmountPaid)
                     <div class="grid grid-cols-3 border-b">
                         <div class="py-2 px-3 bg-gray-50 font-medium text-xs text-gray-600">Total Cost</div>
                         <div class="py-2 px-3 col-span-2">
-                            @if($sessionPaymentMethod === 'LBP')
-                                {{ number_format($sessionTotalCost) }} L.L
+                            @if($session->total_cost)
+                                @if($sessionPaymentMethod === 'LBP')
+                                    {{ number_format($session->total_cost) }} L.L
+                                @else
+                                    ${{ number_format($session->total_cost, 2) }}
+                                @endif
                             @else
-                                ${{ number_format($sessionTotalCost, 2) }}
+                                <span class="text-red-600">Not Calculated</span>
                             @endif
                         </div>
                     </div>
+                    <div class="grid grid-cols-3 border-b">
+                        <div class="py-2 px-3 bg-gray-50 font-medium text-xs text-gray-600">Amount Paid</div>
+                        <div class="py-2 px-3 col-span-2">
+                            @if($sessionPaymentMethod === 'LBP')
+                                {{ number_format($sessionAmountPaid) }} L.L
+                            @else
+                                ${{ number_format($sessionAmountPaid, 2) }}
+                            @endif
+                        </div>
+                    </div>
+                    @if($session->total_cost && $sessionAmountPaid > $session->total_cost)
+                    <div class="grid grid-cols-3 border-b">
+                        <div class="py-2 px-3 bg-gray-50 font-medium text-xs text-gray-600">Change Due</div>
+                        <div class="py-2 px-3 col-span-2 text-green-600 font-medium">
+                            @php
+                                $changeDue = $sessionAmountPaid - $session->total_cost;
+                            @endphp
+                            @if($sessionPaymentMethod === 'LBP')
+                                {{ number_format($changeDue) }} L.L
+                            @else
+                                ${{ number_format($changeDue, 2) }}
+                            @endif
+                        </div>
+                    </div>
+                    @endif
                     <div class="grid grid-cols-3 border-b">
                         <div class="py-2 px-3 bg-gray-50 font-medium text-xs text-gray-600">Payment Method</div>
                         <div class="py-2 px-3 col-span-2">
@@ -360,7 +390,7 @@
                                 <td class="px-4 py-2 whitespace-nowrap text-sm">
                                     @if($session->payment_method === 'LBP')
                                         @php
-                                        // Add-ons have USD prices, need to convert to LBP for display
+                                        // For LBP sessions, show the LBP equivalent of the base USD price
                                         $addOnPriceLbp = $addOn->price * config('play.lbp_exchange_rate', 90000);
                                         @endphp
                                         {{ number_format($addOnPriceLbp) }} L.L
@@ -369,15 +399,16 @@
                                     @endif
                                 </td>
                                 <td class="px-4 py-2 whitespace-nowrap text-sm font-medium">
-                                    @if($session->payment_method === 'LBP')
-                                        @php
-                                        // Add-on subtotals in pivot are in USD, need to convert to LBP for display
-                                        $addOnSubtotalLbp = $addOn->pivot->subtotal * config('play.lbp_exchange_rate', 90000);
-                                        @endphp
-                                        {{ number_format($addOnSubtotalLbp) }} L.L
-                                    @else
-                                        ${{ number_format($addOn->pivot->subtotal, 2) }}
-                                    @endif
+                                    @php
+                                    // Pivot subtotals are stored in USD, convert to session currency for display
+                                    if($session->payment_method === 'LBP') {
+                                        $displaySubtotal = $addOn->pivot->subtotal * config('play.lbp_exchange_rate', 90000);
+                                        $formattedSubtotal = number_format($displaySubtotal) . ' L.L';
+                                    } else {
+                                        $formattedSubtotal = '$' . number_format($addOn->pivot->subtotal, 2);
+                                    }
+                                    @endphp
+                                    {{ $formattedSubtotal }}
                                 </td>
                             </tr>
                             @endforeach
@@ -386,15 +417,17 @@
                             <tr>
                                 <td colspan="3" class="px-4 py-2 text-sm font-medium text-right">Total Add-ons:</td>
                                 <td class="px-4 py-2 whitespace-nowrap text-sm font-bold">
-                                    @if($session->payment_method === 'LBP')
-                                        @php
-                                        // Add-on totals in pivot are in USD, need to convert to LBP for display
-                                        $addOnsTotalLbp = $session->addOns->sum('pivot.subtotal') * config('play.lbp_exchange_rate', 90000);
-                                        @endphp
-                                        {{ number_format($addOnsTotalLbp) }} L.L
-                                    @else
-                                        ${{ number_format($session->addOns->sum('pivot.subtotal'), 2) }}
-                                    @endif
+                                    @php
+                                    // Pivot subtotals are stored in USD, convert to session currency for display
+                                    $addOnsTotal = $session->addOns->sum('pivot.subtotal');
+                                    if($session->payment_method === 'LBP') {
+                                        $displayTotal = $addOnsTotal * config('play.lbp_exchange_rate', 90000);
+                                        $formattedTotal = number_format($displayTotal) . ' L.L';
+                                    } else {
+                                        $formattedTotal = '$' . number_format($addOnsTotal, 2);
+                                    }
+                                    @endphp
+                                    {{ $formattedTotal }}
                                 </td>
                             </tr>
                         </tfoot>

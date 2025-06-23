@@ -136,15 +136,15 @@
                             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                                 @if($session->ended_at)
                                     @php
-                                        // Use total_cost from session for revenue calculation (not amount paid which can include change)
-                                        $totalCost = $session->total_cost;
+                                        // Use total_cost if available, otherwise fall back to amount_paid for old records
+                                        $displayAmount = $session->total_cost ?? $session->amount_paid ?? 0;
                                         $paymentMethod = $session->payment_method;
                                     @endphp
-                                    @if($totalCost)
+                                    @if($displayAmount > 0)
                                         @if($paymentMethod === 'LBP')
-                                            {{ number_format($totalCost) }} L.L
+                                            {{ number_format($displayAmount) }} L.L
                                         @else
-                                            ${{ number_format($totalCost, 2) }}
+                                            ${{ number_format($displayAmount, 2) }}
                                         @endif
                                     @else
                                         <span class="text-red-600">Not Calculated</span>
@@ -303,15 +303,15 @@
                             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                                 @if($session->ended_at)
                                     @php
-                                        // Use total_cost from session for revenue calculation (not amount paid which can include change)
-                                        $totalCost = $session->total_cost;
+                                        // Use total_cost if available, otherwise fall back to amount_paid for old records
+                                        $displayAmount = $session->total_cost ?? $session->amount_paid ?? 0;
                                         $paymentMethod = $session->payment_method;
                                     @endphp
-                                    @if($totalCost)
+                                    @if($displayAmount > 0)
                                         @if($paymentMethod === 'LBP')
-                                            {{ number_format($totalCost) }} L.L
+                                            {{ number_format($displayAmount) }} L.L
                                         @else
-                                            ${{ number_format($totalCost, 2) }}
+                                            ${{ number_format($displayAmount, 2) }}
                                         @endif
                                     @else
                                         <span class="text-red-600">Not Calculated</span>

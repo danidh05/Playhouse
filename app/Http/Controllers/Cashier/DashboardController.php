@@ -242,11 +242,14 @@ class DashboardController extends Controller
      */
     private function calculateDailyRevenue($date)
     {
-        // Calculate revenue from play sessions using total_cost
+        // Calculate revenue from play sessions using total_cost (what customer should pay) with fallback
         $sessionsRevenue = PlaySession::whereDate('ended_at', $date)
             ->whereNotNull('ended_at')
-            ->whereNotNull('total_cost')
-            ->sum('total_cost');
+            ->get()
+            ->sum(function($session) {
+                // Use total_cost if available, otherwise fall back to amount_paid for old records
+                return $session->total_cost ?? $session->amount_paid ?? 0;
+            });
 
         // Calculate revenue from product sales
         $salesRevenue = Sale::whereDate('created_at', $date)

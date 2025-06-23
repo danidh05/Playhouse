@@ -141,26 +141,31 @@ class ShiftController extends Controller
         $playSessionSales = $allSales->whereNotNull('play_session_id');
         $productSales = $allSales->whereNull('play_session_id');
         
-        // 4. Calculate totals without double-counting using TOTAL COST for sessions
+        // 4. Calculate totals without double-counting using TOTAL COST for sessions (with fallback)
         $sessionsTotal = $playSessionSales->filter(function($sale) {
-            return $sale->play_session && $sale->play_session->total_cost;
+            return $sale->play_session;
         })->sum(function($sale) {
-            return $sale->play_session->total_cost;
+            // Use total_cost if available, otherwise fall back to amount_paid for old records
+            return $sale->play_session->total_cost ?? $sale->play_session->amount_paid ?? 0;
         });
-        $salesTotal = $productSales->whereNotNull('amount_paid')->sum('amount_paid');
+        
+        $salesTotal = $productSales->whereNotNull('total_amount')->sum('total_amount');
         $totalRevenue = $sessionsTotal + $salesTotal;
         
-        // Payment method breakdown using TOTAL COST for sessions
+        // Payment method breakdown using TOTAL COST for sessions (with fallback)
         $paymentMethods = config('play.payment_methods', ['Cash', 'Card', 'Transfer', 'LBP']);
         $paymentBreakdown = [];
         
         foreach ($paymentMethods as $method) {
-            $sessionAmount = $playSessionSales->where('payment_method', $method)->filter(function($sale) {
-                return $sale->play_session && $sale->play_session->total_cost;
-            })->sum(function($sale) {
-                return $sale->play_session->total_cost;
-            });
-            $salesAmount = $productSales->where('payment_method', $method)->whereNotNull('amount_paid')->sum('amount_paid');
+            $sessionAmount = $playSessionSales->where('payment_method', $method)
+                ->filter(function($sale) {
+                    return $sale->play_session;
+                })->sum(function($sale) {
+                    // Use total_cost if available, otherwise fall back to amount_paid for old records
+                    return $sale->play_session->total_cost ?? $sale->play_session->amount_paid ?? 0;
+                });
+            
+            $salesAmount = $productSales->where('payment_method', $method)->whereNotNull('total_amount')->sum('total_amount');
             $totalAmount = $sessionAmount + $salesAmount;
             
             if ($totalAmount > 0) {
@@ -233,13 +238,15 @@ class ShiftController extends Controller
         $playSessionSales = $allSales->whereNotNull('play_session_id');
         $productSales = $allSales->whereNull('play_session_id');
         
-        // Calculate totals without double-counting using TOTAL COST for sessions
+        // Calculate totals without double-counting using TOTAL COST for sessions (with fallback)
         $sessionsTotal = $playSessionSales->filter(function($sale) {
-            return $sale->play_session && $sale->play_session->total_cost;
+            return $sale->play_session;
         })->sum(function($sale) {
-            return $sale->play_session->total_cost;
+            // Use total_cost if available, otherwise fall back to amount_paid for old records
+            return $sale->play_session->total_cost ?? $sale->play_session->amount_paid ?? 0;
         });
-        $salesTotal = $productSales->whereNotNull('amount_paid')->sum('amount_paid');
+        
+        $salesTotal = $productSales->whereNotNull('total_amount')->sum('total_amount');
         $totalRevenue = $sessionsTotal + $salesTotal;
         
         return view('cashier.shifts.report', compact(

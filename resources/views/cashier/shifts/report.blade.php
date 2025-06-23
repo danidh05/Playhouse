@@ -19,13 +19,14 @@
                 <p><span class="font-medium">Type:</span> {{ ucfirst($shift->type) }}</p>
                 <p><span class="font-medium">Started at:</span> {{ $shift->opened_at->format('H:i') }}</p>
                 @if($shift->closed_at)
-                    <p><span class="font-medium">Ended at:</span> {{ $shift->closed_at->format('H:i') }}</p>
-                    @php
-                        $duration = $shift->opened_at->diffAsCarbonInterval($shift->closed_at)->cascade();
-                    @endphp
-                    <p><span class="font-medium">Duration:</span> {{ $duration->hours }}h {{ $duration->minutes }}m</p>
+                <p><span class="font-medium">Ended at:</span> {{ $shift->closed_at->format('H:i') }}</p>
+                @php
+                $duration = $shift->opened_at->diffAsCarbonInterval($shift->closed_at)->cascade();
+                @endphp
+                <p><span class="font-medium">Duration:</span> {{ $duration->hours }}h {{ $duration->minutes }}m</p>
                 @else
-                    <p><span class="text-yellow-600 font-medium">Status:</span> <span class="text-yellow-600">Currently Open</span></p>
+                <p><span class="text-yellow-600 font-medium">Status:</span> <span class="text-yellow-600">Currently
+                        Open</span></p>
                 @endif
             </div>
         </div>
@@ -34,8 +35,10 @@
             <h2 class="text-lg font-semibold mb-3">Financial Summary</h2>
             <div class="space-y-2">
                 <p><span class="font-medium">Total Revenue:</span> ${{ number_format($totalRevenue, 2) }}</p>
-                <p class="pl-4"><span class="font-medium">Play Sessions ({{ $playSessionSales->count() }}):</span> ${{ number_format($sessionsTotal, 2) }}</p>
-                <p class="pl-4"><span class="font-medium">Product Sales ({{ $productSales->count() }}):</span> ${{ number_format($salesTotal, 2) }}</p>
+                <p class="pl-4"><span class="font-medium">Play Sessions ({{ $playSessionSales->count() }}):</span>
+                    ${{ number_format($sessionsTotal, 2) }}</p>
+                <p class="pl-4"><span class="font-medium">Product Sales ({{ $productSales->count() }}):</span>
+                    ${{ number_format($salesTotal, 2) }}</p>
             </div>
             <div class="mt-3 text-xs text-gray-600">
                 <p>* Play Sessions and Product Sales are counted separately to avoid double-counting revenue.</p>
@@ -50,39 +53,57 @@
             <table class="min-w-full bg-white">
                 <thead class="bg-gray-100">
                     <tr>
-                        <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Child</th>
-                        <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Started</th>
-                        <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Ended</th>
-                        <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Duration</th>
-                        <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total Cost</th>
-                        <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Payment</th>
+                        <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Child
+                        </th>
+                        <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Started</th>
+                        <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Ended
+                        </th>
+                        <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Duration</th>
+                        <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Amount Paid</th>
+                        <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Payment</th>
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-gray-200">
                     @foreach($playSessionSales as $sale)
                     <tr>
                         <td class="px-4 py-2">{{ $sale->child ? $sale->child->name : 'Unknown' }}</td>
-                        <td class="px-4 py-2">{{ $sale->play_session ? $sale->play_session->started_at->format('H:i') : 'N/A' }}</td>
-                        <td class="px-4 py-2">{{ $sale->play_session && $sale->play_session->ended_at ? $sale->play_session->ended_at->format('H:i') : 'N/A' }}</td>
+                        <td class="px-4 py-2">
+                            {{ $sale->play_session ? $sale->play_session->started_at->format('H:i') : 'N/A' }}</td>
+                        <td class="px-4 py-2">
+                            {{ $sale->play_session && $sale->play_session->ended_at ? $sale->play_session->ended_at->format('H:i') : 'N/A' }}
+                        </td>
                         <td class="px-4 py-2">
                             @if($sale->play_session && $sale->play_session->ended_at)
-                                @php
-                                    $sessionDuration = $sale->play_session->started_at->diffAsCarbonInterval($sale->play_session->ended_at)->cascade();
-                                @endphp
-                                {{ $sessionDuration->hours }}h {{ $sessionDuration->minutes }}m
+                            @php
+                            $sessionDuration =
+                            $sale->play_session->started_at->diffAsCarbonInterval($sale->play_session->ended_at)->cascade();
+                            @endphp
+                            {{ $sessionDuration->hours }}h {{ $sessionDuration->minutes }}m
                             @else
-                                N/A
+                            N/A
                             @endif
                         </td>
                         <td class="px-4 py-2">
-                            @if($sale->play_session && $sale->play_session->total_cost)
-                                @if($sale->payment_method === 'LBP')
-                                    {{ number_format($sale->play_session->total_cost) }} L.L
-                                @else
-                                    ${{ number_format($sale->play_session->total_cost, 2) }}
-                                @endif
+                            @if($sale->play_session)
+                            @php
+                            // Use total_cost if available, otherwise fall back to amount_paid for old records
+                            $displayAmount = $sale->play_session->total_cost ?? $sale->play_session->amount_paid ?? 0;
+                            @endphp
+                            @if($displayAmount > 0)
+                            @if($sale->payment_method === 'LBP')
+                            {{ number_format($displayAmount) }} L.L
                             @else
-                                <span class="text-red-600">Not Calculated</span>
+                            ${{ number_format($displayAmount, 2) }}
+                            @endif
+                            @else
+                            <span class="text-red-600">Not Calculated</span>
+                            @endif
+                            @else
+                            <span class="text-red-600">No Session</span>
                             @endif
                         </td>
                         <td class="px-4 py-2">{{ $sale->payment_method }}</td>
@@ -108,12 +129,18 @@
             <table class="min-w-full bg-white">
                 <thead class="bg-gray-100">
                     <tr>
-                        <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Product</th>
-                        <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Quantity</th>
-                        <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Unit Price</th>
-                        <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total Cost</th>
-                        <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Payment</th>
-                        <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Time</th>
+                        <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Product</th>
+                        <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Quantity</th>
+                        <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Unit
+                            Price</th>
+                        <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Amount Paid</th>
+                        <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Payment</th>
+                        <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Time
+                        </th>
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-gray-200">
@@ -121,32 +148,32 @@
                     <tr>
                         <td class="px-4 py-2">
                             @foreach($sale->items as $item)
-                                {{ $item->product ? $item->product->name : 'Unknown Product' }}{{ !$loop->last ? ', ' : '' }}
+                            {{ $item->product ? $item->product->name : 'Unknown Product' }}{{ !$loop->last ? ', ' : '' }}
                             @endforeach
                         </td>
                         <td class="px-4 py-2">
                             @foreach($sale->items as $item)
-                                {{ $item->quantity }}
+                            {{ $item->quantity }}
                             @endforeach
                         </td>
                         <td class="px-4 py-2">
                             @foreach($sale->items as $item)
-                                @if($sale->payment_method === 'LBP')
-                                    {{ number_format($item->unit_price) }} L.L
-                                @else
-                                    ${{ number_format($item->unit_price, 2) }}
-                                @endif
-                            @endforeach
-                        </td>
-                        <td class="px-4 py-2">
-                            @if($sale->total_amount)
-                                @if($sale->payment_method === 'LBP')
-                                    {{ number_format($sale->total_amount) }} L.L
-                                @else
-                                    ${{ number_format($sale->total_amount, 2) }}
-                                @endif
+                            @if($sale->payment_method === 'LBP')
+                            {{ number_format($item->unit_price) }} L.L
                             @else
-                                <span class="text-red-600">Not Calculated</span>
+                            ${{ number_format($item->unit_price, 2) }}
+                            @endif
+                            @endforeach
+                        </td>
+                        <td class="px-4 py-2">
+                            @if($sale->amount_paid)
+                            @if($sale->payment_method === 'LBP')
+                            {{ number_format($sale->amount_paid) }} L.L
+                            @else
+                            ${{ number_format($sale->amount_paid, 2) }}
+                            @endif
+                            @else
+                            <span class="text-red-600">Not Paid</span>
                             @endif
                         </td>
                         <td class="px-4 py-2">{{ $sale->payment_method }}</td>
@@ -173,4 +200,4 @@
     </div>
     @endif
 </div>
-@endsection 
+@endsection

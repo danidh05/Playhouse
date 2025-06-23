@@ -434,39 +434,32 @@ class SalesController extends Controller
     public function createAddOnOnly(Request $request)
     {
         // Get all available add-ons
-        $addOns = \App\Models\AddOn::where('active', true)->get();
+        $addOns = \App\Models\AddOn::where('active', true)->orderBy('name')->get();
         
         // Find active shift
         $activeShift = Shift::where('cashier_id', Auth::id())
                            ->whereNull('closed_at')
                            ->first();
         
+        if (!$activeShift) {
+            return redirect()->route('cashier.dashboard')
+                ->with('error', 'You must have an active shift to create sales.');
+        }
+        
         // Get the list of children for customer selection
         $children = \App\Models\Child::orderBy('name')->get();
-        
-        // Add play session count for each child
-        foreach ($children as $child) {
-            $child->play_sessions_count = \App\Models\PlaySession::where('child_id', $child->id)->count();
-        }
         
         // Check if a specific child was selected
         $selectedChild = null;
         if ($request->has('child_id') && $request->child_id) {
             $selectedChild = \App\Models\Child::find($request->child_id);
-            if ($selectedChild) {
-                $selectedChild->play_sessions_count = \App\Models\PlaySession::where('child_id', $selectedChild->id)->count();
-            }
         }
-        
-        // Get payment methods
-        $paymentMethods = config('play.payment_methods', []);
         
         return view('cashier.sales.create-addon-only', compact(
             'addOns', 
             'activeShift', 
             'children',
-            'selectedChild',
-            'paymentMethods'
+            'selectedChild'
         ));
     }
     
@@ -475,156 +468,81 @@ class SalesController extends Controller
      */
     public function storeAddOnOnly(Request $request)
     {
-        // Validate request
-        $validator = Validator::make($request->all(), [
+        $request->validate([
             'child_id' => 'required|exists:children,id',
-            'add_ons' => 'required|array|min:1',
-            'payment_method' => 'required|string',
+            'payment_method' => 'required|in:LBP,USD',
+            'custom_total' => 'required|numeric|min:0.01',
             'amount_paid' => 'required|numeric|min:0',
+            'add_ons' => 'required|array|min:1',
+            'add_ons.*.qty' => 'required|numeric|min:0.1'
         ]);
+
+        // Find active shift
+        $shift = Shift::where('cashier_id', Auth::id())
+                     ->whereNull('closed_at')
+                     ->first();
         
-        // Additional validation for add-ons quantities
-        $hasValidAddOns = false;
-        if ($request->has('add_ons') && is_array($request->add_ons)) {
+        if (!$shift) {
+            return redirect()->back()
+                ->with('error', 'No active shift found.')
+                ->withInput();
+        }
+
+        return DB::transaction(function () use ($request, $shift) {
+            $paymentMethod = $request->payment_method;
+            
+            // Use the custom total set by the cashier (no conversions)
+            $totalCost = $request->custom_total;
+            $amountPaid = $request->amount_paid;
+            
+            // Validate amount paid is sufficient
+            if ($amountPaid < $totalCost) {
+                return redirect()->back()
+                    ->with('error', 'Amount paid must be at least the total cost.')
+                    ->withInput();
+            }
+
+            // Create the sale
+            $sale = Sale::create([
+                'shift_id' => $shift->id,
+                'user_id' => Auth::id(),
+                'child_id' => $request->child_id,
+                'total_amount' => $totalCost,
+                'amount_paid' => $amountPaid,
+                'payment_method' => $paymentMethod,
+                'currency' => $paymentMethod,
+                'status' => 'completed',
+                'notes' => 'Add-on only sale (no play session)'
+            ]);
+
+            // Create sale items for each add-on
             foreach ($request->add_ons as $addOnId => $data) {
                 if (isset($data['qty']) && (float)$data['qty'] > 0) {
-                    $hasValidAddOns = true;
-                    break;
+                    $addOn = \App\Models\AddOn::find($addOnId);
+                    if ($addOn) {
+                        $qty = (float)$data['qty'];
+                        
+                        // Store add-on prices in USD for consistency with session add-ons
+                        // The custom total handles the final pricing in the selected currency
+                        $itemPrice = $addOn->price; // Always USD base price
+                        $itemSubtotal = $itemPrice * $qty; // USD subtotal
+                        
+                        // For display purposes, we'll convert during display, not storage
+                        SaleItem::create([
+                            'sale_id' => $sale->id,
+                            'product_id' => null,
+                            'add_on_id' => $addOn->id,
+                            'quantity' => $qty,
+                            'unit_price' => $itemPrice, // USD price for consistency
+                            'subtotal' => $itemSubtotal, // USD subtotal for consistency
+                            'description' => $addOn->name . ' (add-on)'
+                        ]);
+                    }
                 }
             }
-        }
-        
-        if (!$hasValidAddOns) {
-            $validator->after(function ($validator) {
-                $validator->errors()->add('add_ons', 'Please select at least one add-on with a quantity greater than 0.');
-            });
-        }
-        
-        if ($validator->fails()) {
-            return redirect()->back()
-                ->withErrors($validator)
-                ->withInput();
-        }
-        
-        try {
-            return DB::transaction(function () use ($request) {
-                // Find active shift
-                $shift = Shift::where('cashier_id', Auth::id())
-                            ->whereNull('closed_at')
-                            ->first();
-                
-                if (!$shift) {
-                    // Create a new shift for the cashier if none exists
-                    $shift = new Shift();
-                    $shift->cashier_id = Auth::id();
-                    $shift->opened_at = now();
-                    $shift->save();
-                }
-                
-                // Calculate total from add-ons
-                $totalAmount = 0;
-                $addOnsWithQty = [];
-                $paymentMethod = $request->payment_method;
-                $lbpRate = config('play.lbp_exchange_rate', 90000);
-                
-                foreach ($request->add_ons as $addOnId => $data) {
-                    if (isset($data['qty']) && (float)$data['qty'] > 0) {
-                        $addOn = \App\Models\AddOn::find($addOnId);
-                        if ($addOn) {
-                            $qty = (float)$data['qty'];
-                            
-                            // Calculate subtotal in the payment currency
-                            if ($paymentMethod === 'LBP') {
-                                // Convert USD add-on price to LBP for calculation
-                                $addOnPriceLbp = $addOn->price * $lbpRate;
-                                $subtotal = $addOnPriceLbp * $qty;
-                            } else {
-                                // Keep USD price for USD payments
-                                $subtotal = $addOn->price * $qty;
-                            }
-                            
-                            $totalAmount += $subtotal;
-                            
-                            // Store for later
-                            $addOnsWithQty[$addOnId] = [
-                                'qty' => $qty,
-                                'subtotal' => $subtotal
-                            ];
-                        }
-                    }
-                }
-                
-                // If no add-ons were selected with quantity, redirect back
-                if (empty($addOnsWithQty)) {
-                    return redirect()->back()
-                        ->with('error', 'No add-ons selected with quantity.')
-                        ->withInput();
-                }
-                
-                // Set payment method and handle amount calculations
-                // Store amounts in original currency to preserve cashier input
-                if ($paymentMethod === 'LBP') {
-                    // For LBP payments, store LBP amounts directly - total is already calculated in LBP
-                    $amountPaid = round($request->amount_paid, 0);  // LBP (no decimals)
-                    $totalAmountToStore = round($totalAmount, 0);  // Total already in LBP
-                } else {
-                    // For USD payments, store USD amounts - total is already calculated in USD
-                    $amountPaid = round($request->amount_paid, 2);
-                    $totalAmountToStore = round($totalAmount, 2);
-                }
-                
-                // Create the sale
-                $sale = new Sale();
-                $sale->shift_id = $shift->id;
-                $sale->user_id = Auth::id();
-                $sale->total_amount = $totalAmountToStore;
-                $sale->amount_paid = $amountPaid;
-                $sale->payment_method = $paymentMethod;
-                $sale->currency = $paymentMethod === 'LBP' ? 'LBP' : 'USD';
-                $sale->child_id = $request->child_id;
-                $sale->status = 'completed';
-                $sale->notes = 'Add-on only sale (no play session)';
-                $sale->save();
-                
-                // Create sale items for each add-on
-                foreach ($addOnsWithQty as $addOnId => $data) {
-                    $addOn = \App\Models\AddOn::find($addOnId);
-                    
-                    // Store prices in the same currency as the payment method
-                    if ($paymentMethod === 'LBP') {
-                        // Use LBP prices from add-on model or calculate from USD
-                        $itemPrice = isset($addOn->price_lbp) && $addOn->price_lbp > 0 
-                            ? round($addOn->price_lbp, 0) 
-                            : round($addOn->price * $lbpRate, 0);
-                        $itemSubtotal = round($itemPrice * $data['qty'], 0);
-                    } else {
-                        // Use USD prices
-                        $itemPrice = round($addOn->price, 2);
-                        $itemSubtotal = round($itemPrice * $data['qty'], 2);
-                    }
-                    
-                    // Create the sale item
-                    $saleItem = new SaleItem();
-                    $saleItem->sale_id = $sale->id;
-                    $saleItem->product_id = null;  // No product
-                    $saleItem->add_on_id = $addOn->id;
-                    $saleItem->quantity = $data['qty'];
-                    $saleItem->unit_price = $itemPrice;
-                    $saleItem->subtotal = $itemSubtotal;
-                    $saleItem->save();
-                }
-                
-                return redirect()->route('cashier.sales.show', $sale)
-                    ->with('success', 'Add-on sale completed successfully');
-            });
-        } catch (\Exception $e) {
-            // Log the error
-            \Log::error('Error creating add-on sale: ' . $e->getMessage());
-            
-            // Provide a more informative error message
-            return redirect()->back()
-                ->with('error', 'An error occurred: ' . $e->getMessage())
-                ->withInput();
-        }
+
+            return redirect()->route('cashier.sales.show', $sale)
+                ->with('success', 'Add-on sale completed successfully');
+        });
     }
 } 

@@ -83,15 +83,21 @@
                         $childSalesTotal = $sale->child_sales->sum('total_amount');
                     }
                     
-                    // Check if this sale uses the items total instead of stored total
-                    $itemsTotal = $sale->items->sum('subtotal');
-                    
-                    // Use items total if it differs significantly from stored total (indicates stored total is wrong)
-                    if (abs($baseTotal - $itemsTotal) > 1) {
-                        $displayTotal = $itemsTotal + $childSalesTotal;
-                    } else {
-                        $displayTotal = $baseTotal + $childSalesTotal;
+                    // Calculate items total accounting for add-on currency conversion
+                    $itemsTotal = 0;
+                    foreach ($sale->items as $item) {
+                        if ($item->add_on_id && $sale->payment_method === 'LBP') {
+                            // Add-on items are stored in USD, convert to LBP for calculation
+                            $itemsTotal += $item->subtotal * config('play.lbp_exchange_rate', 90000);
+                        } else {
+                            // Regular products and USD add-ons use stored value
+                            $itemsTotal += $item->subtotal;
+                        }
                     }
+                    
+                    // Use the stored total amount (which is the custom amount set by cashier)
+                    // This preserves the exact amount the cashier specified
+                    $displayTotal = $baseTotal + $childSalesTotal;
                     
                     // Check for custom pricing in play session notes
                     $hasCustomPrice = false;
@@ -125,11 +131,18 @@
                                     {{ $item->addOn->name }} <span class="text-xs text-primary">(Add-on)</span>
                                 @endif
                                 <span class="text-xs text-gray-500">
-                                    @if($sale->payment_method === 'LBP')
-                                        {{ number_format($item->subtotal) }} L.L
-                                    @else
-                                        ${{ number_format($item->subtotal, 2) }}
-                                    @endif
+                                    @php
+                                    // For add-on items, subtotals are stored in USD, convert for LBP display
+                                    if($item->add_on_id && $sale->payment_method === 'LBP') {
+                                        $displaySubtotal = $item->subtotal * config('play.lbp_exchange_rate', 90000);
+                                        $formattedSubtotal = number_format($displaySubtotal) . ' L.L';
+                                    } elseif($sale->payment_method === 'LBP') {
+                                        $formattedSubtotal = number_format($item->subtotal) . ' L.L';
+                                    } else {
+                                        $formattedSubtotal = '$' . number_format($item->subtotal, 2);
+                                    }
+                                    @endphp
+                                    {{ $formattedSubtotal }}
                                 </span>
                             </div>
                             @endforeach

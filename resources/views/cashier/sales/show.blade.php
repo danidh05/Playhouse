@@ -210,18 +210,32 @@
                             </td>
                             <td class="px-4 py-3 text-center">{{ $item->quantity }}</td>
                             <td class="px-4 py-3 text-right">
-                                @if($sale->payment_method === 'LBP')
-                                {{ number_format($item->unit_price) }} L.L
-                                @else
-                                ${{ number_format($item->unit_price, 2) }}
-                                @endif
+                                @php
+                                // For add-on items, prices are stored in USD, convert for LBP display
+                                if($item->add_on_id && $sale->payment_method === 'LBP') {
+                                    $displayPrice = $item->unit_price * config('play.lbp_exchange_rate', 90000);
+                                    $formattedPrice = number_format($displayPrice) . ' L.L';
+                                } elseif($sale->payment_method === 'LBP') {
+                                    $formattedPrice = number_format($item->unit_price) . ' L.L';
+                                } else {
+                                    $formattedPrice = '$' . number_format($item->unit_price, 2);
+                                }
+                                @endphp
+                                {{ $formattedPrice }}
                             </td>
                             <td class="px-4 py-3 text-right">
-                                @if($sale->payment_method === 'LBP')
-                                {{ number_format($item->subtotal) }} L.L
-                                @else
-                                ${{ number_format($item->subtotal, 2) }}
-                                @endif
+                                @php
+                                // For add-on items, subtotals are stored in USD, convert for LBP display
+                                if($item->add_on_id && $sale->payment_method === 'LBP') {
+                                    $displaySubtotal = $item->subtotal * config('play.lbp_exchange_rate', 90000);
+                                    $formattedSubtotal = number_format($displaySubtotal) . ' L.L';
+                                } elseif($sale->payment_method === 'LBP') {
+                                    $formattedSubtotal = number_format($item->subtotal) . ' L.L';
+                                } else {
+                                    $formattedSubtotal = '$' . number_format($item->subtotal, 2);
+                                }
+                                @endphp
+                                {{ $formattedSubtotal }}
                             </td>
                         </tr>
                         @endforeach
@@ -247,24 +261,44 @@
         </div>
 
         <!-- Payment Details -->
-        <div class="bg-gray-50 p-4 rounded-lg">
-            <h3 class="font-medium mb-3">Payment Information</h3>
-            <div class="space-y-2">
-                <div class="flex justify-between">
-                    <p class="text-sm text-gray-500">Total Cost:</p>
-                    <p class="text-sm font-medium">
+        <div class="border-t p-6">
+            <h2 class="text-lg font-medium text-gray-800 mb-4">Payment Details</h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                    <p class="text-sm text-gray-500">Method:</p>
+                    <p class="font-medium">
                         @if($sale->payment_method === 'LBP')
-                        {{ number_format($sale->total_amount) }} L.L
+                        Lebanese Pounds (L.L)
+                        @elseif($sale->payment_method === 'USD')
+                        US Dollars ($)
                         @else
-                        ${{ number_format($sale->total_amount, 2) }}
+                        {{ $sale->payment_method }}
                         @endif
                     </p>
                 </div>
-
-                @if($sale->amount_paid)
-                <div class="flex justify-between">
+                <div>
+                    <p class="text-sm text-gray-500">Currency:</p>
+                    <p class="font-medium">
+                        @if($sale->payment_method === 'LBP')
+                        LBP
+                        @else
+                        {{ strtoupper($sale->currency ?? 'USD') }}
+                        @endif
+                    </p>
+                </div>
+                <div>
+                    <p class="text-sm text-gray-500">Total Cost:</p>
+                    <p class="font-medium">
+                        @if($sale->payment_method === 'LBP')
+                        {{ number_format($displayTotal) }} L.L
+                        @else
+                        ${{ number_format($displayTotal, 2) }}
+                        @endif
+                    </p>
+                </div>
+                <div>
                     <p class="text-sm text-gray-500">Amount Paid:</p>
-                    <p class="text-sm font-medium">
+                    <p class="font-medium">
                         @if($sale->payment_method === 'LBP')
                         {{ number_format($sale->amount_paid) }} L.L
                         @else
@@ -272,20 +306,13 @@
                         @endif
                     </p>
                 </div>
-
-                @php
-                // Calculate change from items total (not including markup)
-                $itemsTotal = $sale->items->sum('subtotal');
-                $childSalesTotal = $sale->child_sales ? $sale->child_sales->sum('total_amount') : 0;
-                $displayTotal = $itemsTotal + $childSalesTotal;
-
-                $change = $sale->amount_paid - $displayTotal;
-                @endphp
-
-                @if($change > 0)
-                <div class="flex justify-between border-t border-gray-200 pt-2">
-                    <p class="text-sm text-gray-500">Change Given:</p>
-                    <p class="text-sm font-medium text-green-600">
+                @if($sale->amount_paid > $displayTotal)
+                <div>
+                    <p class="text-sm text-gray-500">Change Due:</p>
+                    <p class="font-medium text-green-600">
+                        @php
+                            $change = $sale->amount_paid - $displayTotal;
+                        @endphp
                         @if($sale->payment_method === 'LBP')
                         {{ number_format($change) }} L.L
                         @else
@@ -294,19 +321,6 @@
                     </p>
                 </div>
                 @endif
-                @endif
-
-                <div class="flex justify-between border-t border-gray-200 pt-2">
-                    <p class="text-sm text-gray-500">Payment Method:</p>
-                    <p class="text-sm font-medium">
-                        <span
-                            class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
-                            {{ $sale->payment_method === 'LBP' ? 'bg-green-100 text-green-800' : 
-                               ($sale->payment_method === 'card' ? 'bg-blue-100 text-blue-800' : 'bg-gray-100 text-gray-800') }}">
-                            {{ $sale->payment_method }}
-                        </span>
-                    </p>
-                </div>
             </div>
         </div>
 
@@ -593,12 +607,16 @@
                                 <span class="text-xs text-gray-500">Qty: </span>{{ $addOn->pivot->qty }}
                             </td>
                             <td class="px-4 py-3 whitespace-nowrap text-right">
-                                @if($sale->payment_method === 'LBP')
-                                {{ number_format($addOn->pivot->subtotal * config('play.lbp_exchange_rate', 90000)) }}
-                                L.L
-                                @else
-                                ${{ number_format($addOn->pivot->subtotal, 2) }}
-                                @endif
+                                @php
+                                // Pivot subtotals are stored in USD, convert to payment currency for display
+                                if($sale->payment_method === 'LBP') {
+                                    $displaySubtotal = $addOn->pivot->subtotal * config('play.lbp_exchange_rate', 90000);
+                                    $formattedSubtotal = number_format($displaySubtotal) . ' L.L';
+                                } else {
+                                    $formattedSubtotal = '$' . number_format($addOn->pivot->subtotal, 2);
+                                }
+                                @endphp
+                                {{ $formattedSubtotal }}
                             </td>
                         </tr>
                         @endforeach

@@ -13,6 +13,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Validation\Rule;
 use Illuminate\Support\Facades\DB;
+use App\Models\Sale;
 
 class PlaySessionController extends Controller
 {
@@ -483,14 +484,22 @@ class PlaySessionController extends Controller
                 ->with('error', 'This session has already ended');
         }
     
-        // Validate payment method
-        $paymentMethods = config('play.payment_methods', []);
         $request->validate([
-            'payment_method' => ['required', Rule::in($paymentMethods)],
+            'payment_method' => 'required|in:LBP,USD',
+            'total_cost' => 'required|numeric|min:0',
             'amount_paid' => 'required|numeric|min:0',
-            'custom_total' => 'nullable|numeric|min:0',
-            'total_amount' => 'required|numeric|min:0',
         ]);
+
+        // Use the custom total_cost set by the cashier (no conversions)
+        $totalCost = $request->total_cost;
+        $amountPaid = $request->amount_paid;
+        
+        // Validate amount paid is sufficient
+        if ($amountPaid < $totalCost) {
+            return redirect()->back()
+                ->with('error', 'Amount paid must be at least the total cost.')
+                ->withInput();
+        }
     
         // Update add-ons if provided
         if ($request->has('add_ons')) {
@@ -627,141 +636,37 @@ class PlaySessionController extends Controller
             }
         }
     
-        // Update play session - store amounts in original currency for BOTH LBP and USD
-        $session->update([
-            'ended_at' => $endTime,
-            'actual_hours' => $actualHours,
-            'amount_paid' => $amountPaidToStore, // Store in original currency (LBP or USD)
-            'payment_method' => $paymentMethod,
-            'total_cost' => $totalAmountToStore, // Store in original currency (LBP or USD)
-            'notes' => $session->notes // Updated with custom price notes
-        ]);
-    
-        // Clean up the session data
-        $request->session()->forget($sessionKey);
-    
-        // Get the current cashier's active shift
-        $currentCashierShift = Shift::where('cashier_id', Auth::id())->whereNull('closed_at')->first();
+        // Update session - store amounts in selected currency without conversion
+        $session->ended_at = now();
+        $session->payment_method = $paymentMethod;
+        $session->total_cost = $totalCost;
+        $session->amount_paid = $amountPaid;
+        $session->save();
+
+        // Create or update the main sale for this session
+        $existingSale = Sale::where('play_session_id', $session->id)->first();
         
-        // If there's no active shift for the current cashier, create one
-        if (!$currentCashierShift) {
-            $currentCashierShift = Shift::create([
-                'cashier_id' => Auth::id(),
-                'date' => now()->toDateString(),
-                'type' => (now()->hour < 12) ? 'morning' : (now()->hour < 18 ? 'afternoon' : 'evening'),
-                'opening_amount' => 0.00,
-                'opened_at' => now(),
-            ]);
-        }
-        
-        // Create sale record
-        // Important: The sale is associated with the current cashier's shift,
-        // but the play session remains with its original shift
-        $sale = \App\Models\Sale::create([
-            'shift_id' => $currentCashierShift->id, // Associate with current cashier's shift
-            'user_id' => Auth::id(), // Current user
-            'total_amount' => $totalAmountToStore, // Store in original currency (LBP or USD)
-            'amount_paid' => $amountPaidToStore, // Store in original currency (LBP or USD)
-            'payment_method' => $paymentMethod,
-            'currency' => $paymentMethod === 'LBP' ? 'LBP' : 'USD', // Set correct currency
-            'child_id' => $session->child_id,
-            'play_session_id' => $session->id,
-            'status' => 'completed'
-        ]);
-        
-        // Create sale items for session time 
-        // For most sessions without add-ons/products, this will be the full custom amount
-        if ($totalAmountToStore > 0 && $addOnsTotal == 0 && $pendingSalesTotal == 0) {
-            // Simple case: no add-ons or products, session cost = total custom amount
-            \App\Models\SaleItem::create([
-                'sale_id' => $sale->id,
-                'product_id' => null, // No product for session time
-                'quantity' => 1,
-                'unit_price' => $totalAmountToStore,
-                'subtotal' => $totalAmountToStore,
-                'description' => 'Play session (' . number_format($actualHours, 2) . ' hours)' . 
-                               ($session->discount_pct > 0 ? ' - ' . $session->discount_pct . '% discount applied' : '')
-            ]);
-        } elseif ($totalAmountToStore > 0) {
-            // Complex case: has add-ons or products, calculate session portion
-            $addOnsCostInStorageCurrency = $paymentMethod === 'LBP' ? ($addOnsTotal * $lbpRate) : $addOnsTotal;
-            $pendingSalesCostInStorageCurrency = $paymentMethod === 'LBP' ? ($pendingSalesTotal * $lbpRate) : $pendingSalesTotal;
-            $sessionItemCost = max(0, $totalAmountToStore - $addOnsCostInStorageCurrency - $pendingSalesCostInStorageCurrency);
-            
-            \App\Models\SaleItem::create([
-                'sale_id' => $sale->id,
-                'product_id' => null, // No product for session time
-                'quantity' => 1,
-                'unit_price' => $sessionItemCost,
-                'subtotal' => $sessionItemCost,
-                'description' => 'Play session (' . number_format($actualHours, 2) . ' hours)' . 
-                               ($session->discount_pct > 0 ? ' - ' . $session->discount_pct . '% discount applied' : '')
-            ]);
-        }
-        
-        // Add-ons items
-        foreach ($session->addOns as $addon) {
-            // Store add-on prices in the payment currency
-            // Add-ons have USD prices, so convert to LBP if needed
-            if ($paymentMethod === 'LBP') {
-                $itemPrice = round($addon->price * $lbpRate, 0);
-                $itemSubtotal = round($addon->pivot->qty * $itemPrice, 0);
-            } else {
-                $itemPrice = $addon->price;
-                $itemSubtotal = round($addon->pivot->qty * $itemPrice, 2);
-            }
-            
-            \App\Models\SaleItem::create([
-                'sale_id' => $sale->id,
-                'product_id' => null, // No product for add-ons
-                'add_on_id' => $addon->id,
-                'quantity' => $addon->pivot->qty,
-                'unit_price' => $itemPrice,
-                'subtotal' => $itemSubtotal,
-                'description' => $addon->name . ' (add-on)'
-            ]);
-        }
-        
-        // Transfer pending product sales to main sale
-        foreach($pendingSales as $pendingSale) {
-            // Copy each product item from pending sale to main sale
-            foreach($pendingSale->items as $item) {
-                // Use the stored prices directly since pending sales should already be in correct currency
-                // Only convert if the pending sale currency differs from main sale currency
-                if ($pendingSale->payment_method === $paymentMethod) {
-                    // Same currency - use stored prices directly
-                    $productPrice = $item->unit_price;
-                    $productSubtotal = $item->subtotal;
-                } else {
-                    // Different currency - convert if needed
-                    if ($paymentMethod === 'LBP' && $pendingSale->payment_method === 'USD') {
-                        $productPrice = round($item->unit_price * $lbpRate, 0);
-                        $productSubtotal = round($item->subtotal * $lbpRate, 0);
-                    } elseif ($paymentMethod === 'USD' && $pendingSale->payment_method === 'LBP') {
-                        $productPrice = round($item->unit_price / $lbpRate, 2);
-                        $productSubtotal = round($item->subtotal / $lbpRate, 2);
-                    } else {
-                        // Same currency or unknown - use as is
-                        $productPrice = $item->unit_price;
-                        $productSubtotal = $item->subtotal;
-                    }
-                }
-                
-                \App\Models\SaleItem::create([
-                    'sale_id' => $sale->id,
-                    'product_id' => $item->product_id,
-                    'quantity' => $item->quantity,
-                    'unit_price' => $productPrice,
-                    'subtotal' => $productSubtotal,
-                    'description' => $item->product->name
-                ]);
-            }
-            
-            // Mark pending sale as completed and link to main sale
-            $pendingSale->update([
-                'status' => 'completed',
+        if ($existingSale) {
+            $existingSale->update([
+                'total_amount' => $totalCost,
+                'amount_paid' => $amountPaid,
                 'payment_method' => $paymentMethod,
-                'parent_sale_id' => $sale->id
+                'currency' => $paymentMethod,
+                'status' => 'completed'
+            ]);
+            $sale = $existingSale;
+        } else {
+            $sale = Sale::create([
+                'play_session_id' => $session->id,
+                'shift_id' => $session->shift_id,
+                'user_id' => Auth::id(),
+                'child_id' => $session->child_id,
+                'total_amount' => $totalCost,
+                'amount_paid' => $amountPaid,
+                'payment_method' => $paymentMethod,
+                'currency' => $paymentMethod,
+                'status' => 'completed',
+                'notes' => 'Play session payment'
             ]);
         }
     

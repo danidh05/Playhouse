@@ -58,17 +58,21 @@ class DashboardController extends Controller
             $date = $currentDate->format('Y-m-d');
             $labels[] = $currentDate->format('M d');
             
-            // Get sales revenue for this day (only from completed sales with total_amount)
+            // Get sales revenue for this day (only from completed sales with amount_paid)
             $salesRevenue = Sale::whereDate('created_at', $date)
                                ->where('status', 'completed')
-                               ->sum('total_amount');
+                               ->whereNotNull('amount_paid')
+                               ->sum('amount_paid');
             $salesData[] = round($salesRevenue, 2);
             
-            // Get play sessions revenue for this day (using total_cost for accurate revenue)
+            // Get play sessions revenue for this day (using total_cost with fallback to amount_paid)
             $sessionsRevenue = PlaySession::whereDate('ended_at', $date)
                                 ->whereNotNull('ended_at')
-                                ->whereNotNull('total_cost')
-                                ->sum('total_cost');
+                                ->get()
+                                ->sum(function($session) {
+                                    // Use total_cost if available, otherwise fall back to amount_paid for old records
+                                    return $session->total_cost ?? $session->amount_paid ?? 0;
+                                });
             $sessionsData[] = round($sessionsRevenue, 2);
             
             // Total revenue for the day

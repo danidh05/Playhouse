@@ -46,14 +46,14 @@ class ShiftController extends Controller
         $sessions = PlaySession::where('shift_id', $shift->id)->get();
         $sales = Sale::where('shift_id', $shift->id)->get();
         
-        // Use total_cost for sessions and total_amount for sales
-        $sessionsTotal = $sessions->whereNotNull('total_cost')->sum('total_cost');
+        // Use correct column names for calculations
+        $sessionsTotal = $sessions->whereNotNull('amount_paid')->sum('amount_paid');
         $salesTotal = $sales->sum('total_amount');
         $totalRevenue = $sessionsTotal + $salesTotal;
         
         // Calculate payment method breakdown using correct columns
-        $cashSessions = $sessions->where('payment_method', 'cash')->whereNotNull('total_cost')->sum('total_cost');
-        $cardSessions = $sessions->whereIn('payment_method', ['credit card', 'debit card', 'card'])->whereNotNull('total_cost')->sum('total_cost');
+        $cashSessions = $sessions->where('payment_method', 'cash')->whereNotNull('amount_paid')->sum('amount_paid');
+        $cardSessions = $sessions->whereIn('payment_method', ['credit card', 'debit card', 'card'])->whereNotNull('amount_paid')->sum('amount_paid');
         $otherSessions = $sessionsTotal - $cashSessions - $cardSessions;
         
         $cashSales = $sales->where('payment_method', 'cash')->sum('total_amount');

@@ -233,32 +233,33 @@
         <!-- Custom manual price entry -->
         <div class="mb-4">
             <div class="flex items-center justify-between">
-                <label for="custom_total" class="block text-gray-700 text-sm font-bold mb-2">Custom Price (Manually Set)</label>
+                <label for="total_cost" class="block text-gray-700 text-sm font-bold mb-2">Total Cost</label>
                 <button type="button" id="use-calculated-total-button" class="text-xs text-blue-600 hover:underline">
-                    Use calculated total
+                    Use calculated total (${{ number_format($totalAmount, 2) }})
                 </button>
             </div>
             <div class="flex items-center">
                 <span class="bg-gray-100 border border-r-0 border-gray-300 rounded-l-md px-3 py-2 text-gray-600">
                     {{ request('payment_method') === 'LBP' ? 'L.L' : '$' }}
                 </span>
-                <input type="number" name="custom_total" id="custom_total"
+                <input type="number" name="total_cost" id="total_cost"
                     step="{{ request('payment_method') === 'LBP' ? '1000' : '0.01' }}" min="0"
                     class="shadow appearance-none border border-l-0 rounded-r-md w-full py-2 px-3 text-gray-700"
                     value="{{ request('payment_method') === 'LBP' ? 
-                           number_format($totalAmount, 0, '.', '') : 
+                           number_format($totalAmount * config('play.lbp_exchange_rate', 90000), 0, '.', '') : 
                            number_format($totalAmount, 2, '.', '') }}" required>
             </div>
-            <p class="text-xs text-gray-500 mt-1">Enter the amount you want to charge the customer (overrides the calculated total).</p>
+            <p class="text-xs text-gray-500 mt-1">Enter the amount you want to charge the customer (defaults to calculated total).</p>
         </div>
 
         <div class="mb-4">
             <div class="flex items-center justify-between">
                 <label for="amount_paid" class="block text-gray-700 text-sm font-bold mb-2">Amount Paid</label>
                 <button type="button" id="use-total-button" class="text-xs text-blue-600 hover:underline">
-                    Use custom price as payment
+                    Use total cost as payment
                 </button>
             </div>
+            <p class="text-xs text-gray-600 mb-2">This is the amount the customer actually paid (for calculating change)</p>
             <div class="flex items-center">
                 <span id="currency-symbol"
                         class="bg-gray-100 border border-r-0 border-gray-300 rounded-l-md px-3 py-2 text-gray-600">
@@ -271,7 +272,7 @@
             </div>
         </div>
 
-        <!-- Add hidden total_amount field -->
+        <!-- Add hidden total_amount field for reference -->
         <input type="hidden" name="total_amount" id="total_amount" value="{{ $totalAmount }}">
 
         <div class="bg-gray-50 border-l-4 border-yellow-500 p-4 mb-6 mt-4">
@@ -330,7 +331,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // Use total button
     let useCustomPriceButton = document.getElementById('use-total-button');
     let amountPaidInput = document.getElementById('amount_paid');
-    let customTotalInput = document.getElementById('custom_total');
+    let customTotalInput = document.getElementById('total_cost');
     
     if (useCustomPriceButton && amountPaidInput && customTotalInput) {
         useCustomPriceButton.addEventListener('click', function() {
@@ -352,7 +353,7 @@ document.addEventListener('DOMContentLoaded', function() {
             
             if (isLBP) {
                 // Convert to LBP and round to nearest thousand
-                calculatedValue = Math.floor((parseFloat(totalAmountInput.value) * exchangeRate) / 1000) * 1000;
+                calculatedValue = Math.round(parseFloat(totalAmountInput.value) * exchangeRate);
             } else {
                 // Use USD value with 2 decimal places
                 calculatedValue = parseFloat(totalAmountInput.value).toFixed(2);
