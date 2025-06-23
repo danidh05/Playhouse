@@ -235,7 +235,7 @@
             <div class="flex items-center justify-between">
                 <label for="total_cost" class="block text-gray-700 text-sm font-bold mb-2">Total Cost</label>
                 <button type="button" id="use-calculated-total-button" class="text-xs text-blue-600 hover:underline">
-                    Use calculated total (${{ number_format($totalAmount, 2) }})
+                    Use calculated total ({{ request('payment_method') === 'LBP' ? number_format($totalAmount) . ' L.L' : '$' . number_format($totalAmount, 2) }})
                 </button>
             </div>
             <div class="flex items-center">
@@ -246,7 +246,7 @@
                     step="{{ request('payment_method') === 'LBP' ? '1000' : '0.01' }}" min="0"
                     class="shadow appearance-none border border-l-0 rounded-r-md w-full py-2 px-3 text-gray-700"
                     value="{{ request('payment_method') === 'LBP' ? 
-                           number_format($totalAmount * config('play.lbp_exchange_rate', 90000), 0, '.', '') : 
+                           number_format($totalAmount, 0, '.', '') : 
                            number_format($totalAmount, 2, '.', '') }}" required>
             </div>
             <p class="text-xs text-gray-500 mt-1">Enter the amount you want to charge the customer (defaults to calculated total).</p>

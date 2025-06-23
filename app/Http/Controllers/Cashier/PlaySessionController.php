@@ -428,7 +428,19 @@ class PlaySessionController extends Controller
         // Get add-ons and their total - this can change between requests
         $addOns = AddOn::where('active', true)->get();
         $sessionAddOns = $session->addOns()->get();
-        $addonsTotal = $sessionAddOns->sum('pivot.subtotal');
+        
+        // Calculate add-ons total in USD first (as stored in pivot)
+        $addonsBaseTotal = $sessionAddOns->sum('pivot.subtotal');
+        
+        // Convert to selected payment currency for display
+        $paymentMethod = $request->get('payment_method');
+        if ($paymentMethod === 'LBP') {
+            $lbpRate = config('play.lbp_exchange_rate', 90000);
+            $addonsTotal = round($addonsBaseTotal * $lbpRate);
+            $rawTimeCost = round($rawTimeCost * $lbpRate);
+        } else {
+            $addonsTotal = $addonsBaseTotal;
+        }
         
         // Apply discount only to time cost, not to add-ons (same as end method)
         $discountPct = $session->discount_pct ?? 0;
@@ -444,7 +456,14 @@ class PlaySessionController extends Controller
             ->with('items.product')
             ->get();
             
-        $pendingSalesTotal = $pendingSales->sum('total_amount');
+        $pendingSalesBaseTotal = $pendingSales->sum('total_amount');
+        
+        // Convert pending sales total to selected currency if needed
+        if ($paymentMethod === 'LBP') {
+            $pendingSalesTotal = round($pendingSalesBaseTotal * $lbpRate);
+        } else {
+            $pendingSalesTotal = $pendingSalesBaseTotal;
+        }
         
         // Subtotal for display (raw time cost + add-ons)
         $subtotal = $rawTimeCost + $addonsTotal + $pendingSalesTotal;
