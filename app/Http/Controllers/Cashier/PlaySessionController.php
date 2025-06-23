@@ -627,22 +627,13 @@ class PlaySessionController extends Controller
             }
         }
     
-        // Update play session (store amounts in original currency for LBP, USD equivalent for USD)
-        if ($paymentMethod === 'LBP') {
-            // For LBP, we still store USD equivalent in the session for backward compatibility
-            $sessionAmountPaid = round($amountPaidToStore / $lbpRate, 2);
-            $sessionTotalCost = round($totalAmountToStore / $lbpRate, 2);
-        } else {
-            $sessionAmountPaid = $amountPaidToStore;
-            $sessionTotalCost = $totalAmountToStore;
-        }
-        
+        // Update play session - store amounts in original currency for BOTH LBP and USD
         $session->update([
             'ended_at' => $endTime,
             'actual_hours' => $actualHours,
-            'amount_paid' => $sessionAmountPaid,
+            'amount_paid' => $amountPaidToStore, // Store in original currency (LBP or USD)
             'payment_method' => $paymentMethod,
-            'total_cost' => $sessionTotalCost,
+            'total_cost' => $totalAmountToStore, // Store in original currency (LBP or USD)
             'notes' => $session->notes // Updated with custom price notes
         ]);
     

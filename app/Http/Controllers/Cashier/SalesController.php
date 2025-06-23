@@ -524,13 +524,25 @@ class SalesController extends Controller
                 // Calculate total from add-ons
                 $totalAmount = 0;
                 $addOnsWithQty = [];
+                $paymentMethod = $request->payment_method;
+                $lbpRate = config('play.lbp_exchange_rate', 90000);
                 
                 foreach ($request->add_ons as $addOnId => $data) {
                     if (isset($data['qty']) && (float)$data['qty'] > 0) {
                         $addOn = \App\Models\AddOn::find($addOnId);
                         if ($addOn) {
                             $qty = (float)$data['qty'];
-                            $subtotal = $addOn->price * $qty;
+                            
+                            // Calculate subtotal in the payment currency
+                            if ($paymentMethod === 'LBP') {
+                                // Convert USD add-on price to LBP for calculation
+                                $addOnPriceLbp = $addOn->price * $lbpRate;
+                                $subtotal = $addOnPriceLbp * $qty;
+                            } else {
+                                // Keep USD price for USD payments
+                                $subtotal = $addOn->price * $qty;
+                            }
+                            
                             $totalAmount += $subtotal;
                             
                             // Store for later
@@ -550,16 +562,13 @@ class SalesController extends Controller
                 }
                 
                 // Set payment method and handle amount calculations
-                $paymentMethod = $request->payment_method;
-                $lbpRate = config('play.lbp_exchange_rate', 90000);
-                
                 // Store amounts in original currency to preserve cashier input
                 if ($paymentMethod === 'LBP') {
-                    // For LBP payments, store LBP amounts directly and convert totalAmount too
+                    // For LBP payments, store LBP amounts directly - total is already calculated in LBP
                     $amountPaid = round($request->amount_paid, 0);  // LBP (no decimals)
-                    $totalAmountToStore = round($totalAmount * $lbpRate, 0);  // Convert to LBP
+                    $totalAmountToStore = round($totalAmount, 0);  // Total already in LBP
                 } else {
-                    // For USD payments, store USD amounts
+                    // For USD payments, store USD amounts - total is already calculated in USD
                     $amountPaid = round($request->amount_paid, 2);
                     $totalAmountToStore = round($totalAmount, 2);
                 }
@@ -581,9 +590,18 @@ class SalesController extends Controller
                 foreach ($addOnsWithQty as $addOnId => $data) {
                     $addOn = \App\Models\AddOn::find($addOnId);
                     
-                    // Convert prices to the payment currency for sale items
-                    $itemPrice = $paymentMethod === 'LBP' ? round($addOn->price * $lbpRate, 0) : $addOn->price;
-                    $itemSubtotal = $paymentMethod === 'LBP' ? round($data['subtotal'] * $lbpRate, 0) : $data['subtotal'];
+                    // Store prices in the same currency as the payment method
+                    if ($paymentMethod === 'LBP') {
+                        // Use LBP prices from add-on model or calculate from USD
+                        $itemPrice = isset($addOn->price_lbp) && $addOn->price_lbp > 0 
+                            ? round($addOn->price_lbp, 0) 
+                            : round($addOn->price * $lbpRate, 0);
+                        $itemSubtotal = round($itemPrice * $data['qty'], 0);
+                    } else {
+                        // Use USD prices
+                        $itemPrice = round($addOn->price, 2);
+                        $itemSubtotal = round($itemPrice * $data['qty'], 2);
+                    }
                     
                     // Create the sale item
                     $saleItem = new SaleItem();
