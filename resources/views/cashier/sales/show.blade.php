@@ -90,104 +90,10 @@
                         @php
                         $lbpRate = config('play.lbp_exchange_rate');
                         $suffix = $sale->payment_method === 'LBP' ? ' L.L' : '';
-                        $multiplier = $sale->payment_method === 'LBP' ? $lbpRate : 1;
+                        // Since we now store amounts in their original currency, no multiplier needed
+                        $multiplier = 1;
 
-                        // We don't need to recalculate these - use stored values
-                        if ($sale->play_session) {
-                            $baseTotal = $sale->total_amount;
-                            $sessionCost = $sale->total_amount;
-                            
-                            // Check if this is a custom price session (extracted from notes)
-                            $hasCustomPrice = false;
-                            $customPrice = '';
-                            $customPriceNumeric = 0;
-                            
-                            if ($sale->play_session->notes && strpos($sale->play_session->notes, 'Manual price set by cashier') !== false) {
-                                $hasCustomPrice = true;
-                                $notes = explode("\n\n", $sale->play_session->notes);
-                                
-                                foreach ($notes as $note) {
-                                    if (strpos($note, 'Manual price set by cashier') !== false) {
-                                        if ($sale->payment_method === 'LBP') {
-                                            preg_match('/Manual price set by cashier: (.*?) LBP\./', $note, $matches);
-                                        } else {
-                                            preg_match('/Manual price set by cashier: \$(.*?)\./', $note, $matches);
-                                        }
-                                        
-                                        if (isset($matches[1])) {
-                                            $customPrice = $matches[1];
-                                            // Clean up the number (remove commas)
-                                            $customPriceNumeric = str_replace(',', '', $matches[1]);
-                                            
-                                            // If we're in LBP mode and displaying a custom price in LBP, convert back to USD for calculations
-                                            if ($sale->payment_method === 'LBP') {
-                                                // This is already the LBP price, so we'll keep it for display
-                                                $customPriceDisplay = $customPrice . ' L.L';
-                                                
-                                                // For total calculations, we'll use this LBP value directly
-                                                $customPriceForTotals = (float)$customPriceNumeric;
-                                            } else {
-                                                $customPriceDisplay = '$' . $customPrice;
-                                                
-                                                // For USD, use the numeric value directly
-                                                $customPriceForTotals = (float)$customPriceNumeric;
-                                            }
-                                            
-                                            // Override the baseTotal with our custom price
-                                            if ($sale->payment_method === 'LBP') {
-                                                // If we're in LBP mode, we need to use the custom price in LBP (not convert it)
-                                                $baseTotal = $customPriceForTotals / $lbpRate;  // Store in USD
-                                            } else {
-                                                $baseTotal = $customPriceForTotals;  // Already in USD
-                                            }
-                                        }
-                                        break;
-                                    }
-                                }
-                                
-                                // For custom priced sessions, session cost is the custom price
-                                $sessionCost = $baseTotal;
-                            } else {
-                                // Regular calculation for non-custom prices
-                                if ($sale->play_session->addOns->count() > 0) {
-                                    $addOnsTotal = $sale->play_session->addOns->sum(function ($addOn) {
-                                        return $addOn->pivot->subtotal;
-                                    });
-                                    $sessionCost = $baseTotal - $addOnsTotal;
-                                }
-                            }
-                            
-                            // Calculate billed time display
-                            if ($sale->play_session->actual_hours == 0 && $sale->play_session->ended_at) {
-                                $startTime = $sale->play_session->started_at;
-                                $endTime = $sale->play_session->ended_at;
-                                $durationInMinutes = $startTime->diffInMinutes($endTime);
-                                $calculatedHours = $durationInMinutes / 60;
-                                $displayHours = $calculatedHours;
-                            } else {
-                                $displayHours = $sale->play_session->actual_hours ?: 0;
-                            }
-
-                            // Format for display
-                            $hoursDisplay = floor($displayHours);
-                            $minutesDisplay = round(($displayHours - $hoursDisplay) * 60);
-                            $billTimeDisplay = ($hoursDisplay > 0 ? $hoursDisplay . 'h ' : '') . $minutesDisplay . 'm';
-                            $timeDisplay = $billTimeDisplay; // Use the same time display everywhere
-                        } else {
-                            $baseTotal = $sale->total_amount;
-                            $timeDisplay = '';
-                            $billTimeDisplay = '';
-                            $sessionCost = 0;
-                            $hasCustomPrice = false;
-                        }
-
-                        // If this is a parent sale with child sales, add their totals to the display total
-                        $childSalesTotal = 0;
-                        if ($sale->child_sales && $sale->child_sales->count() > 0) {
-                            $childSalesTotal = $sale->child_sales->sum('total_amount');
-                        }
-
-                        // For display purposes, use the sale total_amount directly
+                        // Simple approach: use stored amounts directly 
                         $displayTotal = $sale->total_amount;
                         $suffix = $sale->payment_method === 'LBP' ? ' L.L' : '';
                         
@@ -226,22 +132,26 @@
                                 </td>
                                 <td class="px-4 py-3 whitespace-nowrap text-right text-sm">
                                     @if($item->product_id)
-                                        {{ number_format($item->unit_price * $multiplier, 2) }}{{ $suffix }}
+                                        {{ number_format($item->unit_price, 2) }}{{ $suffix }}
                                     @elseif(strpos($item->description, 'Play session') !== false)
                                         @if($hasCustomPrice)
                                         <span class="text-blue-600 font-medium">Flat Rate</span>
                                         @else
-                                        {{ number_format(config('play.hourly_rate', 10.00) * $multiplier, 2) }}{{ $suffix }}/hr
+                                        @if($sale->payment_method === 'LBP')
+                                        {{ number_format(config('play.hourly_rate', 10.00) * $lbpRate, 0) }}{{ $suffix }}/hr
+                                        @else
+                                        ${{ number_format(config('play.hourly_rate', 10.00), 2) }}/hr
+                                        @endif
                                         @endif
                                     @else
-                                        {{ number_format($item->unit_price * $multiplier, 2) }}{{ $suffix }}
+                                        {{ number_format($item->unit_price, 2) }}{{ $suffix }}
                                     @endif
                                 </td>
                                 <td class="px-4 py-3 whitespace-nowrap text-right text-sm">
                                     {{ $item->quantity }}
                                 </td>
                                 <td class="px-4 py-3 whitespace-nowrap text-right text-sm font-medium">
-                                    {{ number_format($item->subtotal * $multiplier, 2) }}{{ $suffix }}
+                                    {{ number_format($item->subtotal, 2) }}{{ $suffix }}
                                 </td>
                             </tr>
                             @endforeach
@@ -256,13 +166,13 @@
                                             <div class="text-xs text-gray-500">Product (from session)</div>
                                         </td>
                                         <td class="px-4 py-3 whitespace-nowrap text-right text-sm">
-                                            {{ number_format($item->unit_price * $multiplier, 2) }}{{ $suffix }}
+                                            {{ number_format($item->unit_price, 2) }}{{ $suffix }}
                                         </td>
                                         <td class="px-4 py-3 whitespace-nowrap text-right text-sm">
                                             {{ $item->quantity }}
                                         </td>
                                         <td class="px-4 py-3 whitespace-nowrap text-right text-sm font-medium">
-                                            {{ number_format($item->subtotal * $multiplier, 2) }}{{ $suffix }}
+                                            {{ number_format($item->subtotal, 2) }}{{ $suffix }}
                                         </td>
                                     </tr>
                                     @endforeach

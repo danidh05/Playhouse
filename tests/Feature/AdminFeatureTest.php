@@ -67,7 +67,7 @@ class AdminFeatureTest extends TestCase
         $response = $this->actingAs($this->admin)
             ->withoutMiddleware()
             ->post(route('admin.products.store'), $productData);
-
+        
         $response->assertRedirect(route('admin.products.index'));
         $this->assertDatabaseHas('products', $productData);
     }
@@ -94,7 +94,7 @@ class AdminFeatureTest extends TestCase
         $response = $this->actingAs($this->admin)
             ->withoutMiddleware()
             ->put(route('admin.products.update', $product), $updatedData);
-
+        
         $response->assertRedirect(route('admin.products.index'));
         $this->assertDatabaseHas('products', $updatedData);
     }
@@ -113,7 +113,7 @@ class AdminFeatureTest extends TestCase
         $response = $this->actingAs($this->admin)
             ->withoutMiddleware()
             ->delete(route('admin.products.destroy', $product));
-
+        
         $response->assertRedirect(route('admin.products.index'));
         $this->assertDatabaseMissing('products', ['id' => $product->id]);
     }
@@ -138,7 +138,7 @@ class AdminFeatureTest extends TestCase
         $response = $this->actingAs($this->admin)
             ->withoutMiddleware()
             ->post(route('admin.addons.store'), $addonData);
-
+        
         $response->assertRedirect(route('admin.addons.index'));
         $this->assertDatabaseHas('add_ons', $addonData);
     }
@@ -161,7 +161,7 @@ class AdminFeatureTest extends TestCase
         $response = $this->actingAs($this->admin)
             ->withoutMiddleware()
             ->put(route('admin.addons.update', $addon), $updatedData);
-
+        
         $response->assertRedirect(route('admin.addons.index'));
         $this->assertDatabaseHas('add_ons', $updatedData);
     }
@@ -178,7 +178,7 @@ class AdminFeatureTest extends TestCase
         $response = $this->actingAs($this->admin)
             ->withoutMiddleware()
             ->delete(route('admin.addons.destroy', $addon));
-
+        
         $response->assertRedirect(route('admin.addons.index'));
         $this->assertDatabaseMissing('add_ons', ['id' => $addon->id]);
     }
@@ -214,7 +214,7 @@ class AdminFeatureTest extends TestCase
         $response = $this->actingAs($this->admin)
             ->withoutMiddleware()
             ->patch(route('admin.complaints.toggle-resolved', $complaint));
-
+        
         $response->assertRedirect(route('admin.complaints.index'));
         $this->assertDatabaseHas('complaints', [
             'id' => $complaint->id,
@@ -242,7 +242,7 @@ class AdminFeatureTest extends TestCase
         $response = $this->actingAs($this->admin)
             ->withoutMiddleware()
             ->post(route('admin.expenses.store'), $expenseData);
-
+        
         $response->assertRedirect(route('admin.expenses.index'));
         $this->assertDatabaseHas('expenses', [
             'item' => $expenseData['item'],
@@ -263,7 +263,7 @@ class AdminFeatureTest extends TestCase
         $response = $this->actingAs($this->admin)
             ->withoutMiddleware()
             ->delete(route('admin.expenses.destroy', $expense));
-
+        
         $response->assertRedirect(route('admin.expenses.index'));
         $this->assertDatabaseMissing('expenses', ['id' => $expense->id]);
     }

@@ -82,8 +82,8 @@
 
 <!-- Child Selection Modal -->
 <div id="child-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center hidden z-50">
-    <div class="bg-white rounded-lg p-6 w-1/2 max-h-3/4 overflow-y-auto">
-        <div class="flex justify-between items-center mb-4">
+    <div class="bg-white rounded-lg w-11/12 md:w-3/4 lg:w-1/2 mx-4 flex flex-col" style="max-height: 80vh;">
+        <div class="flex justify-between items-center mb-4 p-6 border-b">
             <h2 class="text-xl font-bold">Select Child</h2>
             <button onclick="closeChildModal()" class="text-gray-500 hover:text-gray-700">
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -92,28 +92,32 @@
             </button>
         </div>
         
-        <div class="mb-4">
-            <input type="text" id="child-search" placeholder="Search children..." class="border border-gray-300 rounded w-full p-2 mb-4">
-            
-            <div class="mb-6">
-                <button onclick="clearChildSelection()" class="w-full bg-gray-100 hover:bg-gray-200 p-3 rounded-lg mb-4 flex items-center justify-between">
-                    <div>
-                        <div class="font-medium">No Child Selected</div>
-                        <div class="text-sm text-gray-500">Not related to a specific child</div>
-                    </div>
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-gray-500" viewBox="0 0 20 20" fill="currentColor">
-                        <path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clip-rule="evenodd" />
-                    </svg>
-                </button>
-            </div>
-            
-            <div id="children-list">
+        <div class="px-6 pb-2">
+            <input type="text" id="child-search" placeholder="Search children..." class="border border-gray-300 rounded w-full p-2">
+        </div>
+        
+        <div class="px-6 py-2">
+            <button onclick="clearChildSelection()" class="w-full bg-gray-100 hover:bg-gray-200 p-3 rounded-lg flex items-center justify-between">
+                <div>
+                    <div class="font-medium">No Child Selected</div>
+                    <div class="text-sm text-gray-500">Not related to a specific child</div>
+                </div>
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-gray-500" viewBox="0 0 20 20" fill="currentColor">
+                    <path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clip-rule="evenodd" />
+                </svg>
+            </button>
+        </div>
+        
+        <div class="flex-1 overflow-y-auto px-6 pb-6">
+            <div id="children-list" class="space-y-2">
                 @foreach($children as $child)
-                <div class="child-item p-3 border-b hover:bg-gray-50 cursor-pointer" onclick="selectChild({{ $child->id }}, '{{ $child->name }}')">
-                    <div class="font-medium">{{ $child->name }}</div>
-                    @if(isset($child->guardian_name))
-                    <div class="text-sm text-gray-500">Parent: {{ $child->guardian_name }}</div>
-                    @endif
+                <div class="child-item p-3 border rounded-lg hover:bg-gray-50 cursor-pointer" onclick="selectChild({{ $child->id }}, '{{ addslashes($child->name) }}')">
+                    <div>
+                        <div class="font-medium">{{ $child->name }}</div>
+                        @if($child->guardian_name)
+                        <div class="text-sm text-gray-500">Parent: {{ $child->guardian_name }}</div>
+                        @endif
+                    </div>
                 </div>
                 @endforeach
             </div>

@@ -679,22 +679,30 @@ class PlaySessionController extends Controller
         ]);
         
         // Create sale items for session time 
-        // Use the custom total set by cashier, not the calculated time cost
-        if ($totalAmountToStore > 0) {
-            // For the main session item, use the total amount that was set by the cashier
-            $sessionSubtotal = $totalAmountToStore - ($addOnsTotal * ($paymentMethod === 'LBP' ? $lbpRate : 1)) - ($pendingSalesTotal * ($paymentMethod === 'LBP' ? $lbpRate : 1));
-            
-            // If there are no add-ons or pending sales, the session cost is the full amount
-            if ($addOnsTotal == 0 && $pendingSalesTotal == 0) {
-                $sessionSubtotal = $totalAmountToStore;
-            }
+        // For most sessions without add-ons/products, this will be the full custom amount
+        if ($totalAmountToStore > 0 && $addOnsTotal == 0 && $pendingSalesTotal == 0) {
+            // Simple case: no add-ons or products, session cost = total custom amount
+            \App\Models\SaleItem::create([
+                'sale_id' => $sale->id,
+                'product_id' => null, // No product for session time
+                'quantity' => 1,
+                'unit_price' => $totalAmountToStore,
+                'subtotal' => $totalAmountToStore,
+                'description' => 'Play session (' . number_format($actualHours, 2) . ' hours)' . 
+                               ($session->discount_pct > 0 ? ' - ' . $session->discount_pct . '% discount applied' : '')
+            ]);
+        } elseif ($totalAmountToStore > 0) {
+            // Complex case: has add-ons or products, calculate session portion
+            $addOnsCostInStorageCurrency = $paymentMethod === 'LBP' ? ($addOnsTotal * $lbpRate) : $addOnsTotal;
+            $pendingSalesCostInStorageCurrency = $paymentMethod === 'LBP' ? ($pendingSalesTotal * $lbpRate) : $pendingSalesTotal;
+            $sessionItemCost = max(0, $totalAmountToStore - $addOnsCostInStorageCurrency - $pendingSalesCostInStorageCurrency);
             
             \App\Models\SaleItem::create([
                 'sale_id' => $sale->id,
                 'product_id' => null, // No product for session time
                 'quantity' => 1,
-                'unit_price' => $sessionSubtotal,
-                'subtotal' => $sessionSubtotal,
+                'unit_price' => $sessionItemCost,
+                'subtotal' => $sessionItemCost,
                 'description' => 'Play session (' . number_format($actualHours, 2) . ' hours)' . 
                                ($session->discount_pct > 0 ? ' - ' . $session->discount_pct . '% discount applied' : '')
             ]);

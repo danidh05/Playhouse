@@ -59,8 +59,7 @@
                         <label class="mr-2 text-sm">Quantity:</label>
                         <input type="number" name="add_ons[{{ $addOn->id }}][qty]" value="0" min="0" step="0.5"
                             class="border rounded w-16 p-1 text-center addon-qty" data-price="{{ $addOn->price }}"
-                            data-id="{{ $addOn->id }}"
-                            oninput="calculateTotal(); updateTotalDisplay(); updateOrderSummary();">
+                            data-id="{{ $addOn->id }}" data-name="{{ $addOn->name }}">
                     </div>
                 </div>
                 @endforeach
@@ -160,15 +159,15 @@
                 @if(isset($children) && count($children) > 0)
                 @foreach($children as $child)
                 <div class="child-item p-3 border rounded-lg hover:bg-gray-50 cursor-pointer"
-                    onclick="selectChild({{ $child->id }}, '{{ $child->name }}')">
+                    onclick="selectChild({{ $child->id }}, '{{ addslashes($child->name) }}')">
                     <div class="flex justify-between items-center">
                         <div>
                             <div class="font-medium">{{ $child->name }}</div>
-                            @if(isset($child->guardian_name))
+                            @if($child->guardian_name)
                             <div class="text-sm text-gray-500">Parent: {{ $child->guardian_name }}</div>
                             @endif
                         </div>
-                        <div class="bg-primary-light text-primary px-2 py-1 rounded-full text-sm font-medium">
+                        <div class="bg-blue-100 text-blue-800 px-2 py-1 rounded-full text-sm font-medium">
                             {{ $child->play_sessions_count ?? 0 }} sessions
                         </div>
                     </div>
@@ -177,7 +176,8 @@
                 @else
                 <div class="text-center py-4 text-gray-500">
                     No registered children found.
-                    <a href="{{ route('cashier.children.create') }}" class="text-primary">Register a child</a>
+                    <a href="{{ route('cashier.children.create') }}" class="text-blue-600 hover:text-blue-800">Register
+                        a child</a>
                 </div>
                 @endif
             </div>
@@ -214,10 +214,10 @@ document.addEventListener('DOMContentLoaded', function() {
     // Add event listeners to all addon quantity inputs
     document.querySelectorAll('.addon-qty').forEach(input => {
         input.addEventListener('input', function() {
-            calculateTotal();
-            updateTotalDisplay();
-            updateOrderSummary();
-            validateForm();
+            updateAllCalculations();
+        });
+        input.addEventListener('change', function() {
+            updateAllCalculations();
         });
     });
 
@@ -226,34 +226,56 @@ document.addEventListener('DOMContentLoaded', function() {
         const childId = document.getElementById('child_id').value;
         const total = calculateTotal();
 
-        if (!childId || total <= 0) {
+        if (!childId) {
             e.preventDefault();
-            alert('Please select a child and add at least one add-on before completing the sale.');
+            alert('Please select a child before completing the sale.');
             return false;
         }
 
-        // Ensure amount_paid field has the current value from the correct section
+        if (total <= 0) {
+            e.preventDefault();
+            alert(
+                'Please add at least one add-on with quantity greater than 0 before completing the sale.'
+            );
+            return false;
+        }
+
+        // Validate that amount paid is sufficient
         const method = document.querySelector('input[name="payment_method"]:checked').value;
+        let amountPaid = 0;
+
         if (method === 'LBP') {
-            const lbpAmount = document.getElementById('amount-paid-lbp').value;
+            amountPaid = parseFloat(document.getElementById('amount-paid-lbp').value) || 0;
+            const totalLBP = Math.round(total * LBP_RATE);
+            if (amountPaid < totalLBP) {
+                e.preventDefault();
+                alert(
+                    `Amount paid (${amountPaid.toLocaleString()} L.L) is less than total (${totalLBP.toLocaleString()} L.L)`
+                );
+                return false;
+            }
             document.getElementById('amount-paid-lbp').setAttribute('name', 'amount_paid');
             document.getElementById('amount-paid-usd').removeAttribute('name');
         } else {
-            const usdAmount = document.getElementById('amount-paid-usd').value;
+            amountPaid = parseFloat(document.getElementById('amount-paid-usd').value) || 0;
+            if (amountPaid < total) {
+                e.preventDefault();
+                alert(
+                    `Amount paid ($${amountPaid.toFixed(2)}) is less than total ($${total.toFixed(2)})`
+                );
+                return false;
+            }
             document.getElementById('amount-paid-usd').setAttribute('name', 'amount_paid');
             document.getElementById('amount-paid-lbp').removeAttribute('name');
         }
 
-        // Form is valid, allow submission
+        console.log('Form submitted with child:', childId, 'total:', total, 'amount paid:', amountPaid);
         return true;
     });
 
-    // Initialize
-    calculateTotal();
+    // Initialize all calculations
+    updateAllCalculations();
     togglePaymentSections();
-    updateTotalDisplay();
-    updateOrderSummary();
-    validateForm();
 });
 
 function closeCustomerModal() {
@@ -261,9 +283,31 @@ function closeCustomerModal() {
 }
 
 function selectChild(id, name) {
-    document.getElementById('child_id').value = id;
-    document.getElementById('customer-display').textContent = name;
-    closeCustomerModal();
+    console.log('Selecting child:', id, name); // Debug log
+
+    const childIdField = document.getElementById('child_id');
+    const customerDisplay = document.getElementById('customer-display');
+
+    if (childIdField && customerDisplay) {
+        childIdField.value = id;
+        customerDisplay.textContent = name;
+        closeCustomerModal();
+        validateForm();
+
+        // Show success feedback
+        customerDisplay.classList.add('text-green-600');
+        setTimeout(() => {
+            customerDisplay.classList.remove('text-green-600');
+        }, 1000);
+    } else {
+        console.error('Could not find child_id or customer-display elements');
+    }
+}
+
+function updateAllCalculations() {
+    calculateTotal();
+    updateTotalDisplay();
+    updateOrderSummary();
     validateForm();
 }
 
@@ -282,7 +326,7 @@ function updateOrderSummary() {
             hasItems = true;
             const price = parseFloat(input.dataset.price);
             const id = input.dataset.id;
-            const name = input.closest('.border').querySelector('h3').textContent;
+            const name = input.dataset.name || input.closest('.border').querySelector('h3').textContent;
             const itemTotal = qty * price;
             total += itemTotal;
 
@@ -347,11 +391,20 @@ function updateTotalDisplay() {
     const total = calculateTotal();
     const method = document.querySelector('input[name="payment_method"]:checked').value;
 
+    // Update the total display in the order summary
     if (method === 'LBP') {
         const totalLBP = Math.round(total * LBP_RATE);
-        document.getElementById('amount-paid-lbp').value = totalLBP;
+        document.getElementById('total-display').textContent = `${totalLBP.toLocaleString()} L.L`;
+        // Auto-fill the amount paid field with the total (can be modified by user)
+        if (total > 0) {
+            document.getElementById('amount-paid-lbp').value = totalLBP;
+        }
     } else {
-        document.getElementById('amount-paid-usd').value = total.toFixed(2);
+        document.getElementById('total-display').textContent = `$${total.toFixed(2)}`;
+        // Auto-fill the amount paid field with the total (can be modified by user)
+        if (total > 0) {
+            document.getElementById('amount-paid-usd').value = total.toFixed(2);
+        }
     }
 }
 

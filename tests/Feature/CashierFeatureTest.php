@@ -315,13 +315,13 @@ class CashierFeatureTest extends TestCase
             'amount_paid' => 20.00,
             'currency' => 'usd',
         ];
-
+        
         $response = $this->actingAs($this->cashier)
             ->withoutMiddleware()
             ->post(route('cashier.sales.store'), $saleData);
-
+        
         $response->assertRedirect();
-
+        
         // Check if the sale was created
         $sale = Sale::first();
         $this->assertNotNull($sale);
@@ -412,7 +412,7 @@ class CashierFeatureTest extends TestCase
         $response = $this->actingAs($this->cashier)
             ->withoutMiddleware()
             ->post(route('cashier.complaints.store'), $complaintData);
-
+        
         $response->assertRedirect();
         $this->assertDatabaseHas('complaints', [
             'child_id' => $child->id,

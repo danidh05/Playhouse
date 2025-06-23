@@ -186,8 +186,8 @@
 <!-- Child Selection Modal -->
 @if(!isset($child))
 <div id="child-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center hidden z-50">
-    <div class="bg-white rounded-lg p-6 w-1/2 max-h-[75vh] overflow-y-auto">
-        <div class="flex justify-between items-center mb-4">
+    <div class="bg-white rounded-lg w-11/12 md:w-3/4 lg:w-1/2 mx-4 flex flex-col" style="max-height: 80vh;">
+        <div class="flex justify-between items-center mb-4 p-6 border-b">
             <h2 class="text-xl font-bold">Select Child</h2>
             <button onclick="closeChildModal()" class="text-gray-500 hover:text-gray-700">
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24"
@@ -197,20 +197,22 @@
             </button>
         </div>
 
-        <div class="mb-4">
+        <div class="px-6 pb-2">
             <input type="text" id="child-search" placeholder="Search children..."
-                class="border border-gray-300 rounded w-full p-2 mb-4">
+                class="border border-gray-300 rounded w-full p-2">
+        </div>
 
-            <div id="children-list">
+        <div class="flex-1 overflow-y-auto px-6 pb-6">
+            <div id="children-list" class="space-y-2">
                 @foreach($children as $childOption)
-                <div class="child-item p-3 border-b hover:bg-gray-50 cursor-pointer"
-                    onclick="selectChild({{ $childOption->id }}, '{{ $childOption->name }}')">
+                <div class="child-item p-3 border rounded-lg hover:bg-gray-50 cursor-pointer"
+                    onclick="selectChild({{ $childOption->id }}, '{{ addslashes($childOption->name) }}')">
                     <div class="flex justify-between items-center">
                         <div>
                             <div class="font-medium">{{ $childOption->name }}</div>
                             <div class="text-sm text-gray-500">{{ $childOption->age ?? 'Age unknown' }}</div>
                         </div>
-                        <div class="bg-primary-light text-primary px-2 py-1 rounded-full text-sm font-medium">
+                        <div class="bg-blue-100 text-blue-800 px-2 py-1 rounded-full text-sm font-medium">
                             {{ $childOption->play_sessions_count ?? 0 }} sessions
                         </div>
                     </div>
