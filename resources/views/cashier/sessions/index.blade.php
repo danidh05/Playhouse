@@ -138,13 +138,16 @@
                                     @php
                                         // Use total_cost if available, otherwise fall back to amount_paid for old records
                                         $displayAmount = $session->total_cost ?? $session->amount_paid ?? 0;
-                                        $paymentMethod = $session->payment_method;
+                                        // Check sale payment method as fallback if session method is null
+                                        $paymentMethod = $session->payment_method ?? $session->sale?->payment_method;
                                     @endphp
                                     @if($displayAmount > 0)
                                         @if($paymentMethod === 'LBP')
                                             {{ number_format($displayAmount) }} L.L
-                                        @else
+                                        @elseif($paymentMethod)
                                             ${{ number_format($displayAmount, 2) }}
+                                        @else
+                                            <span class="text-orange-600">${{ number_format($displayAmount, 2) }} (No payment method)</span>
                                         @endif
                                     @else
                                         <span class="text-red-600">Not Calculated</span>
@@ -305,13 +308,16 @@
                                     @php
                                         // Use total_cost if available, otherwise fall back to amount_paid for old records
                                         $displayAmount = $session->total_cost ?? $session->amount_paid ?? 0;
-                                        $paymentMethod = $session->payment_method;
+                                        // Check sale payment method as fallback if session method is null
+                                        $paymentMethod = $session->payment_method ?? $session->sale?->payment_method;
                                     @endphp
                                     @if($displayAmount > 0)
                                         @if($paymentMethod === 'LBP')
                                             {{ number_format($displayAmount) }} L.L
-                                        @else
+                                        @elseif($paymentMethod)
                                             ${{ number_format($displayAmount, 2) }}
+                                        @else
+                                            <span class="text-orange-600">${{ number_format($displayAmount, 2) }} (No payment method)</span>
                                         @endif
                                     @else
                                         <span class="text-red-600">Not Calculated</span>
