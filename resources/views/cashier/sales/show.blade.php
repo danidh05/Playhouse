@@ -93,8 +93,23 @@
                         // Since we now store amounts in their original currency, no multiplier needed
                         $multiplier = 1;
 
-                        // Simple approach: use stored amounts directly 
-                        $displayTotal = $sale->total_amount;
+                        // Calculate total from actual items to ensure accuracy
+                        $calculatedTotal = $sale->items->sum('subtotal');
+                        
+                        // Add child sales totals if they exist
+                        if ($sale->child_sales && $sale->child_sales->count() > 0) {
+                            foreach ($sale->child_sales as $childSale) {
+                                $calculatedTotal += $childSale->items->sum('subtotal');
+                            }
+                        }
+                        
+                        // Use calculated total if it differs significantly from stored total
+                        if (abs($sale->total_amount - $calculatedTotal) > 1) {
+                            $displayTotal = $calculatedTotal;
+                        } else {
+                            $displayTotal = $sale->total_amount;
+                        }
+                        
                         $suffix = $sale->payment_method === 'LBP' ? ' L.L' : '';
                         
                         // Check for custom pricing from session notes

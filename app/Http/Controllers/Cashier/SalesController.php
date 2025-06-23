@@ -376,17 +376,21 @@ class SalesController extends Controller
             $playSessionId = $sale->play_session_id;
             $hasPlaySession = !empty($playSessionId);
             
-            // Restore product stock for each sale item
+            // Restore product stock for each sale item (only if product exists)
             foreach ($sale->items as $item) {
-                $item->product->increment('stock_qty', $item->quantity);
+                if ($item->product_id && $item->product) {
+                    $item->product->increment('stock_qty', $item->quantity);
+                }
             }
             
             // Check for child sales that should be deleted
             if ($sale->child_sales && $sale->child_sales->count() > 0) {
                 foreach ($sale->child_sales as $childSale) {
-                    // Restore product stock for each child sale item
+                    // Restore product stock for each child sale item (only if product exists)
                     foreach ($childSale->items as $item) {
-                        $item->product->increment('stock_qty', $item->quantity);
+                        if ($item->product_id && $item->product) {
+                            $item->product->increment('stock_qty', $item->quantity);
+                        }
                     }
                     
                     // Delete child sale items
