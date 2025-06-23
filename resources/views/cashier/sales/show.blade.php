@@ -294,9 +294,9 @@
                     <p class="text-sm text-gray-500">Total:</p>
                     <p class="font-medium">
                         @if($sale->payment_method === 'LBP')
-                        {{ number_format($sale->total_amount) }} L.L
+                        {{ number_format($displayTotal) }} L.L
                         @else
-                        ${{ number_format($sale->total_amount, 2) }}
+                        ${{ number_format($displayTotal, 2) }}
                         @endif
                         @if($hasCustomPrice)
                         <span class="text-xs text-blue-600 ml-2">(Custom price)</span>
@@ -307,8 +307,8 @@
                     <p class="text-sm text-gray-500">Change:</p>
                     <p class="font-medium">
                         @php
-                        // Calculate change as the difference between amount paid and total
-                        $change = $sale->amount_paid - $sale->total_amount;
+                        // Calculate change using the same display total for consistency
+                        $change = $sale->amount_paid - $displayTotal;
                         @endphp
 
                         @if($change > 0)

@@ -86,7 +86,7 @@
                     </span>
                     <span class="font-medium">
                         @if(request('payment_method') === 'LBP')
-                        {{ number_format(floor(($rawTimeCost * config('play.lbp_exchange_rate', 90000))/1000)*1000) }}
+                        {{ number_format($rawTimeCost) }}
                         L.L
                         @else
                         ${{ number_format($rawTimeCost, 2) }}
@@ -99,7 +99,7 @@
                 <span class="text-gray-600">Discount on Time ({{ $session->discount_pct }}%):</span>
                     <span class="font-medium text-green-600">
                         @if(request('payment_method') === 'LBP')
-                        -{{ number_format(floor(($discountAmount * config('play.lbp_exchange_rate', 90000))/1000)*1000) }}
+                        -{{ number_format($discountAmount) }}
                         L.L
                         @else
                         -${{ number_format($discountAmount, 2) }}
@@ -110,7 +110,7 @@
                 <span class="text-gray-600">Discounted Time Cost:</span>
                     <span class="font-medium">
                         @if(request('payment_method') === 'LBP')
-                        {{ number_format(floor(($timeCost * config('play.lbp_exchange_rate', 90000))/1000)*1000) }} L.L
+                        {{ number_format($timeCost) }} L.L
                         @else
                         ${{ number_format($timeCost, 2) }}
                         @endif
@@ -122,7 +122,7 @@
                 <span class="text-gray-600">Add-ons:</span>
                     <span class="font-medium">
                         @if(request('payment_method') === 'LBP')
-                        {{ number_format(floor(($addonsTotal * config('play.lbp_exchange_rate', 90000))/1000)*1000) }}
+                        {{ number_format($addonsTotal) }}
                         L.L
                         @else
                         ${{ number_format($addonsTotal, 2) }}
@@ -138,7 +138,7 @@
                     </div>
                     <span class="font-medium">
                         @if(request('payment_method') === 'LBP')
-                        {{ number_format(floor(($pendingSalesTotal * config('play.lbp_exchange_rate', 90000))/1000)*1000) }}
+                        {{ number_format($pendingSalesTotal) }}
                         L.L
                         @else
                         ${{ number_format($pendingSalesTotal, 2) }}
@@ -151,7 +151,7 @@
                 <span class="text-gray-800 font-bold">Total:</span>
                     <span class="font-bold text-lg" id="calculated-total">
                         @if(request('payment_method') === 'LBP')
-                        {{ number_format(floor(($totalAmount * config('play.lbp_exchange_rate', 90000))/1000)*1000) }}
+                        {{ number_format($totalAmount) }}
                         L.L
                         @else
                         ${{ number_format($totalAmount, 2) }}
@@ -195,8 +195,8 @@
                                         <td class="py-1">{{ $item->product->name }}</td>
                                         <td class="py-1">{{ $item->quantity }}</td>
                                         <td class="py-1 text-right">
-                                            @if(request('payment_method') === 'LBP')
-                                            {{ number_format($item->subtotal * config('play.lbp_exchange_rate', 90000)) }} L.L
+                                            @if($sale->payment_method === 'LBP')
+                                            {{ number_format($item->subtotal) }} L.L
                                             @else
                                             ${{ number_format($item->subtotal, 2) }}
                                             @endif
@@ -208,8 +208,8 @@
                                     <tr class="border-t border-yellow-200">
                                         <td colspan="2" class="py-1 text-right font-medium">Subtotal:</td>
                                         <td class="py-1 text-right font-medium">
-                                            @if(request('payment_method') === 'LBP')
-                                            {{ number_format($sale->total_amount * config('play.lbp_exchange_rate', 90000)) }} L.L
+                                            @if($sale->payment_method === 'LBP')
+                                            {{ number_format($sale->total_amount) }} L.L
                                             @else
                                             ${{ number_format($sale->total_amount, 2) }}
                                             @endif
@@ -246,7 +246,7 @@
                     step="{{ request('payment_method') === 'LBP' ? '1000' : '0.01' }}" min="0"
                     class="shadow appearance-none border border-l-0 rounded-r-md w-full py-2 px-3 text-gray-700"
                     value="{{ request('payment_method') === 'LBP' ? 
-                           number_format(floor(($totalAmount * config('play.lbp_exchange_rate', 90000))/1000)*1000, 0, '.', '') : 
+                           number_format($totalAmount, 0, '.', '') : 
                            number_format($totalAmount, 2, '.', '') }}" required>
             </div>
             <p class="text-xs text-gray-500 mt-1">Enter the amount you want to charge the customer (overrides the calculated total).</p>

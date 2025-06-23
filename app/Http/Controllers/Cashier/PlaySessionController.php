@@ -503,10 +503,10 @@ class PlaySessionController extends Controller
                         $qty = (float)$data['qty'];
                         $subtotal = $addOn->price * $qty;
     
-                        $session->addOns()->attach($addOnId, [
+                    $session->addOns()->attach($addOnId, [
                             'qty' => $qty,
-                            'subtotal' => $subtotal
-                        ]);
+                        'subtotal' => $subtotal
+                    ]);
                     }
                 }
             }
@@ -701,12 +701,20 @@ class PlaySessionController extends Controller
         
         // Add-ons items
         foreach ($session->addOns as $addon) {
-            $itemPrice = $paymentMethod === 'LBP' ? round($addon->price * $lbpRate, 0) : $addon->price;
-            $itemSubtotal = $paymentMethod === 'LBP' ? round($addon->pivot->subtotal * $lbpRate, 0) : $addon->pivot->subtotal;
+            // Store add-on prices in the payment currency
+            // Add-ons have USD prices, so convert to LBP if needed
+            if ($paymentMethod === 'LBP') {
+                $itemPrice = round($addon->price * $lbpRate, 0);
+                $itemSubtotal = round($addon->pivot->qty * $itemPrice, 0);
+            } else {
+                $itemPrice = $addon->price;
+                $itemSubtotal = round($addon->pivot->qty * $itemPrice, 2);
+            }
             
             \App\Models\SaleItem::create([
                 'sale_id' => $sale->id,
                 'product_id' => null, // No product for add-ons
+                'add_on_id' => $addon->id,
                 'quantity' => $addon->pivot->qty,
                 'unit_price' => $itemPrice,
                 'subtotal' => $itemSubtotal,
@@ -718,9 +726,26 @@ class PlaySessionController extends Controller
         foreach($pendingSales as $pendingSale) {
             // Copy each product item from pending sale to main sale
             foreach($pendingSale->items as $item) {
-                // Convert product prices to the payment currency
-                $productPrice = $paymentMethod === 'LBP' ? round($item->unit_price * $lbpRate, 0) : $item->unit_price;
-                $productSubtotal = $paymentMethod === 'LBP' ? round($item->subtotal * $lbpRate, 0) : $item->subtotal;
+                // Use the stored prices directly since pending sales should already be in correct currency
+                // Only convert if the pending sale currency differs from main sale currency
+                if ($pendingSale->payment_method === $paymentMethod) {
+                    // Same currency - use stored prices directly
+                    $productPrice = $item->unit_price;
+                    $productSubtotal = $item->subtotal;
+                } else {
+                    // Different currency - convert if needed
+                    if ($paymentMethod === 'LBP' && $pendingSale->payment_method === 'USD') {
+                        $productPrice = round($item->unit_price * $lbpRate, 0);
+                        $productSubtotal = round($item->subtotal * $lbpRate, 0);
+                    } elseif ($paymentMethod === 'USD' && $pendingSale->payment_method === 'LBP') {
+                        $productPrice = round($item->unit_price / $lbpRate, 2);
+                        $productSubtotal = round($item->subtotal / $lbpRate, 2);
+                    } else {
+                        // Same currency or unknown - use as is
+                        $productPrice = $item->unit_price;
+                        $productSubtotal = $item->subtotal;
+                    }
+                }
                 
                 \App\Models\SaleItem::create([
                     'sale_id' => $sale->id,
@@ -764,8 +789,8 @@ class PlaySessionController extends Controller
             foreach ($request->add_ons as $addOnId => $data) {
                 $addOn = AddOn::find($addOnId);
                 if ($addOn && isset($data['qty']) && (float)$data['qty'] > 0) {
-                    $qty = (float)$data['qty'];
-                    $subtotal = $addOn->price * $qty;
+                        $qty = (float)$data['qty'];
+                        $subtotal = $addOn->price * $qty;
                     
                     $addOnsWithQty[$addOnId] = [
                         'qty' => $qty,
@@ -778,7 +803,7 @@ class PlaySessionController extends Controller
                 $session->addOns()->attach($addOnsWithQty);
             }
         }
-
+        
         return redirect()->route('cashier.sessions.show', $session->id)
             ->with('success', 'Add-ons updated successfully');
     }
@@ -839,7 +864,7 @@ class PlaySessionController extends Controller
         
         // Decode the products from JSON string or use array directly
         if (is_string($request->products)) {
-            $productsData = json_decode($request->products, true);
+        $productsData = json_decode($request->products, true);
         } else {
             $productsData = $request->products;
         }

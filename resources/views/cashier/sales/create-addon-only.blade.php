@@ -14,7 +14,9 @@
         <div class="flex items-center mr-4">
             <span class="text-sm text-gray-600 mr-2">Customer:</span>
             <div id="customer-display" class="text-primary font-medium">
-                @if(request()->has('child_id') && request()->child_id)
+                @if($selectedChild)
+                {{ $selectedChild->name }}
+                @elseif(request()->has('child_id') && request()->child_id)
                 {{ \App\Models\Child::find(request()->child_id)->name ?? 'Select Child' }}
                 @else
                 Select Child
@@ -33,7 +35,8 @@
 <div class="p-4">
     <form id="addon-sale-form" action="{{ route('cashier.sales.store-addon-only') }}" method="POST">
         @csrf
-        <input type="hidden" id="child_id" name="child_id" value="{{ request()->child_id ?? '' }}">
+        <input type="hidden" id="child_id" name="child_id"
+            value="{{ $selectedChild?->id ?? request()->child_id ?? '' }}">
 
         @if ($errors->any())
         <div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
@@ -198,14 +201,24 @@ const LBP_RATE = {
 
 // Initial setup
 document.addEventListener('DOMContentLoaded', function() {
+    console.log('DOM loaded, setting up add-on only sale page'); // Debug log
+
     // Set up customer selection
-    document.getElementById('change-customer-btn').addEventListener('click', function() {
-        document.getElementById('customer-modal').classList.remove('hidden');
-    });
+    const changeCustomerBtn = document.getElementById('change-customer-btn');
+    if (changeCustomerBtn) {
+        changeCustomerBtn.addEventListener('click', function() {
+            console.log('Change customer button clicked'); // Debug log
+            const modal = document.getElementById('customer-modal');
+            if (modal) {
+                modal.classList.remove('hidden');
+            }
+        });
+    }
 
     // Set up payment method changes
     document.querySelectorAll('.payment-method').forEach(radio => {
         radio.addEventListener('change', function() {
+            console.log('Payment method changed to:', this.value); // Debug log
             togglePaymentSections();
             updateTotalDisplay();
         });
@@ -213,7 +226,10 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Add event listeners to all addon quantity inputs
     document.querySelectorAll('.addon-qty').forEach(input => {
+        console.log('Setting up event listener for addon:', input.dataset.name); // Debug log
         input.addEventListener('input', function() {
+            console.log('Addon quantity changed:', this.value, 'for', this.dataset
+                .name); // Debug log
             updateAllCalculations();
         });
         input.addEventListener('change', function() {
@@ -222,64 +238,101 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 
     // Set up form submission
-    document.getElementById('addon-sale-form').addEventListener('submit', function(e) {
-        const childId = document.getElementById('child_id').value;
-        const total = calculateTotal();
+    const form = document.getElementById('addon-sale-form');
+    if (form) {
+        form.addEventListener('submit', function(e) {
+            console.log('Form submission started'); // Debug log
+            const childId = document.getElementById('child_id').value;
+            const total = calculateTotal();
 
-        if (!childId) {
-            e.preventDefault();
-            alert('Please select a child before completing the sale.');
-            return false;
-        }
+            console.log('Form validation - Child ID:', childId, 'Total:', total); // Debug log
 
-        if (total <= 0) {
-            e.preventDefault();
-            alert(
-                'Please add at least one add-on with quantity greater than 0 before completing the sale.'
-            );
-            return false;
-        }
+            if (!childId) {
+                e.preventDefault();
+                alert('Please select a child before completing the sale.');
+                return false;
+            }
 
-        // Validate that amount paid is sufficient
-        const method = document.querySelector('input[name="payment_method"]:checked').value;
-        let amountPaid = 0;
-
-        if (method === 'LBP') {
-            amountPaid = parseFloat(document.getElementById('amount-paid-lbp').value) || 0;
-            const totalLBP = Math.round(total * LBP_RATE);
-            if (amountPaid < totalLBP) {
+            if (total <= 0) {
                 e.preventDefault();
                 alert(
-                    `Amount paid (${amountPaid.toLocaleString()} L.L) is less than total (${totalLBP.toLocaleString()} L.L)`
+                    'Please add at least one add-on with quantity greater than 0 before completing the sale.'
                 );
                 return false;
             }
-            document.getElementById('amount-paid-lbp').setAttribute('name', 'amount_paid');
-            document.getElementById('amount-paid-usd').removeAttribute('name');
-        } else {
-            amountPaid = parseFloat(document.getElementById('amount-paid-usd').value) || 0;
-            if (amountPaid < total) {
-                e.preventDefault();
-                alert(
-                    `Amount paid ($${amountPaid.toFixed(2)}) is less than total ($${total.toFixed(2)})`
-                );
-                return false;
-            }
-            document.getElementById('amount-paid-usd').setAttribute('name', 'amount_paid');
-            document.getElementById('amount-paid-lbp').removeAttribute('name');
-        }
 
-        console.log('Form submitted with child:', childId, 'total:', total, 'amount paid:', amountPaid);
-        return true;
-    });
+            // Validate that amount paid is sufficient
+            const method = document.querySelector('input[name="payment_method"]:checked').value;
+            let amountPaid = 0;
+
+            if (method === 'LBP') {
+                amountPaid = parseFloat(document.getElementById('amount-paid-lbp').value) || 0;
+                const totalLBP = Math.round(total * LBP_RATE);
+                if (amountPaid < totalLBP) {
+                    e.preventDefault();
+                    alert(
+                        `Amount paid (${amountPaid.toLocaleString()} L.L) is less than total (${totalLBP.toLocaleString()} L.L)`
+                    );
+                    return false;
+                }
+                // Ensure only LBP amount is submitted
+                document.getElementById('amount-paid-lbp').setAttribute('name', 'amount_paid');
+                document.getElementById('amount-paid-usd').removeAttribute('name');
+            } else {
+                amountPaid = parseFloat(document.getElementById('amount-paid-usd').value) || 0;
+                if (amountPaid < total) {
+                    e.preventDefault();
+                    alert(
+                        `Amount paid ($${amountPaid.toFixed(2)}) is less than total ($${total.toFixed(2)})`
+                    );
+                    return false;
+                }
+                // Ensure only USD amount is submitted
+                document.getElementById('amount-paid-usd').setAttribute('name', 'amount_paid');
+                document.getElementById('amount-paid-lbp').removeAttribute('name');
+            }
+
+            console.log('Form validated successfully - Child:', childId, 'Total:', total,
+                'Amount paid:', amountPaid);
+            return true;
+        });
+    }
+
+    // Set up child search functionality
+    const childSearch = document.getElementById('child-search');
+    if (childSearch) {
+        childSearch.addEventListener('input', function(e) {
+            const searchTerm = e.target.value.toLowerCase();
+            console.log('Searching for:', searchTerm); // Debug log
+
+            document.querySelectorAll('.child-item').forEach(item => {
+                const childName = item.querySelector('.font-medium')?.textContent
+                    .toLowerCase() || '';
+                const parentElement = item.querySelector('.text-gray-500');
+                const parentName = parentElement ? parentElement.textContent.toLowerCase() : '';
+
+                if (childName.includes(searchTerm) || parentName.includes(searchTerm)) {
+                    item.style.display = 'block';
+                } else {
+                    item.style.display = 'none';
+                }
+            });
+        });
+    }
 
     // Initialize all calculations
     updateAllCalculations();
     togglePaymentSections();
+
+    console.log('Add-on only sale page setup complete'); // Debug log
 });
 
 function closeCustomerModal() {
-    document.getElementById('customer-modal').classList.add('hidden');
+    console.log('Closing customer modal'); // Debug log
+    const modal = document.getElementById('customer-modal');
+    if (modal) {
+        modal.classList.add('hidden');
+    }
 }
 
 function selectChild(id, name) {
@@ -298,23 +351,33 @@ function selectChild(id, name) {
         customerDisplay.classList.add('text-green-600');
         setTimeout(() => {
             customerDisplay.classList.remove('text-green-600');
+            customerDisplay.classList.add('text-primary');
         }, 1000);
+
+        console.log('Child selected successfully'); // Debug log
     } else {
         console.error('Could not find child_id or customer-display elements');
     }
 }
 
 function updateAllCalculations() {
-    calculateTotal();
+    console.log('Updating all calculations'); // Debug log
+    const total = calculateTotal();
     updateTotalDisplay();
     updateOrderSummary();
     validateForm();
+    return total;
 }
 
 function updateOrderSummary() {
     let total = 0;
     let hasItems = false;
     const orderSummary = document.getElementById('order-summary');
+
+    if (!orderSummary) {
+        console.error('Order summary element not found');
+        return;
+    }
 
     // Clear previous summary
     orderSummary.innerHTML = '';
@@ -325,8 +388,7 @@ function updateOrderSummary() {
         if (qty > 0) {
             hasItems = true;
             const price = parseFloat(input.dataset.price);
-            const id = input.dataset.id;
-            const name = input.dataset.name || input.closest('.border').querySelector('h3').textContent;
+            const name = input.dataset.name;
             const itemTotal = qty * price;
             total += itemTotal;
 
@@ -334,9 +396,9 @@ function updateOrderSummary() {
             const itemElement = document.createElement('div');
             itemElement.className = 'flex justify-between';
             itemElement.innerHTML = `
-                    <span>${name} x ${qty}</span>
-                    <span>$${itemTotal.toFixed(2)}</span>
-                `;
+                <span>${name} x ${qty}</span>
+                <span>$${itemTotal.toFixed(2)}</span>
+            `;
             orderSummary.appendChild(itemElement);
         }
     });
@@ -347,6 +409,7 @@ function updateOrderSummary() {
             '<p class="text-gray-500 italic text-center" id="no-items-message">No add-ons selected</p>';
     }
 
+    console.log('Order summary updated, total:', total); // Debug log
     return total;
 }
 
@@ -357,61 +420,93 @@ function calculateTotal() {
     document.querySelectorAll('.addon-qty').forEach(input => {
         const qty = parseFloat(input.value) || 0;
         if (qty > 0) {
-            const price = parseFloat(input.dataset.price);
+            const price = parseFloat(input.dataset.price) || 0;
             total += qty * price;
         }
     });
 
     // Update all total displays
-    document.getElementById('total-display').textContent = `$${total.toFixed(2)}`;
-    document.getElementById('total-usd').textContent = `$${total.toFixed(2)}`;
-    document.getElementById('total-lbp').textContent = `${Math.round(total * LBP_RATE).toLocaleString()} L.L.`;
+    const totalDisplay = document.getElementById('total-display');
+    const totalUsd = document.getElementById('total-usd');
+    const totalLbp = document.getElementById('total-lbp');
 
-    // Update form validation
-    validateForm();
+    if (totalDisplay) totalDisplay.textContent = `$${total.toFixed(2)}`;
+    if (totalUsd) totalUsd.textContent = `$${total.toFixed(2)}`;
+    if (totalLbp) totalLbp.textContent = `${Math.round(total * LBP_RATE).toLocaleString()} L.L.`;
 
+    console.log('Total calculated:', total); // Debug log
     return total;
 }
 
 function togglePaymentSections() {
-    const method = document.querySelector('input[name="payment_method"]:checked').value;
+    const checkedMethod = document.querySelector('input[name="payment_method"]:checked');
+    if (!checkedMethod) {
+        console.error('No payment method selected');
+        return;
+    }
+
+    const method = checkedMethod.value;
     const lbpSection = document.getElementById('lbp-payment-section');
     const usdSection = document.getElementById('usd-payment-section');
 
     if (method === 'LBP') {
-        lbpSection.classList.remove('hidden');
-        usdSection.classList.add('hidden');
+        if (lbpSection) lbpSection.classList.remove('hidden');
+        if (usdSection) usdSection.classList.add('hidden');
     } else {
-        lbpSection.classList.add('hidden');
-        usdSection.classList.remove('hidden');
+        if (lbpSection) lbpSection.classList.add('hidden');
+        if (usdSection) usdSection.classList.remove('hidden');
     }
+
+    console.log('Payment sections toggled for method:', method); // Debug log
 }
 
 function updateTotalDisplay() {
     const total = calculateTotal();
-    const method = document.querySelector('input[name="payment_method"]:checked').value;
+    const checkedMethod = document.querySelector('input[name="payment_method"]:checked');
+
+    if (!checkedMethod) {
+        console.error('No payment method selected for total display');
+        return;
+    }
+
+    const method = checkedMethod.value;
 
     // Update the total display in the order summary
     if (method === 'LBP') {
         const totalLBP = Math.round(total * LBP_RATE);
-        document.getElementById('total-display').textContent = `${totalLBP.toLocaleString()} L.L`;
+        const totalDisplay = document.getElementById('total-display');
+        const amountPaidLbp = document.getElementById('amount-paid-lbp');
+
+        if (totalDisplay) totalDisplay.textContent = `${totalLBP.toLocaleString()} L.L`;
+
         // Auto-fill the amount paid field with the total (can be modified by user)
-        if (total > 0) {
-            document.getElementById('amount-paid-lbp').value = totalLBP;
+        if (total > 0 && amountPaidLbp) {
+            amountPaidLbp.value = totalLBP;
         }
     } else {
-        document.getElementById('total-display').textContent = `$${total.toFixed(2)}`;
+        const totalDisplay = document.getElementById('total-display');
+        const amountPaidUsd = document.getElementById('amount-paid-usd');
+
+        if (totalDisplay) totalDisplay.textContent = `$${total.toFixed(2)}`;
+
         // Auto-fill the amount paid field with the total (can be modified by user)
-        if (total > 0) {
-            document.getElementById('amount-paid-usd').value = total.toFixed(2);
+        if (total > 0 && amountPaidUsd) {
+            amountPaidUsd.value = total.toFixed(2);
         }
     }
+
+    console.log('Total display updated for method:', method, 'total:', total); // Debug log
 }
 
 function validateForm() {
-    const childId = document.getElementById('child_id').value;
+    const childId = document.getElementById('child_id')?.value;
     const total = calculateTotal();
     const submitBtn = document.getElementById('submit-btn');
+
+    if (!submitBtn) {
+        console.error('Submit button not found');
+        return;
+    }
 
     // Only disable the button if no child selected or no items added
     if (!childId || total <= 0) {
@@ -421,26 +516,9 @@ function validateForm() {
         submitBtn.disabled = false;
         submitBtn.classList.remove('opacity-50', 'cursor-not-allowed');
     }
+
+    console.log('Form validation - Child ID:', childId, 'Total:', total, 'Valid:', !!(childId && total >
+        0)); // Debug log
 }
-
-// Filter children in the modal
-document.addEventListener('DOMContentLoaded', function() {
-    if (document.getElementById('child-search')) {
-        document.getElementById('child-search').addEventListener('input', function(e) {
-            const searchTerm = e.target.value.toLowerCase();
-            document.querySelectorAll('.child-item').forEach(item => {
-                const childName = item.querySelector('.font-medium').textContent.toLowerCase();
-                const parentName = item.querySelector('.text-gray-500')?.textContent
-                    .toLowerCase() || '';
-
-                if (childName.includes(searchTerm) || parentName.includes(searchTerm)) {
-                    item.style.display = 'block';
-                } else {
-                    item.style.display = 'none';
-                }
-            });
-        });
-    }
-});
 </script>
 @endsection

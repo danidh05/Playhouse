@@ -74,52 +74,29 @@
                 @if(count($sales) > 0)
                 @foreach($sales as $sale)
                 @php
-                    // Calculate the correct total amount similar to the show view
-                    $lbpRate = config('play.lbp_exchange_rate', 90000);
-                    $multiplier = $sale->payment_method === 'LBP' ? $lbpRate : 1;
+                    // Use the stored amounts directly since they're now in the correct currency
                     $baseTotal = $sale->total_amount;
                     
-                    // Add child sales totals if any
+                    // Add child sales totals if any (they should be in same currency)
                     $childSalesTotal = 0;
                     if ($sale->child_sales && $sale->child_sales->count() > 0) {
                         $childSalesTotal = $sale->child_sales->sum('total_amount');
                     }
                     
+                    // Check if this sale uses the items total instead of stored total
+                    $itemsTotal = $sale->items->sum('subtotal');
+                    
+                    // Use items total if it differs significantly from stored total (indicates stored total is wrong)
+                    if (abs($baseTotal - $itemsTotal) > 1) {
+                        $displayTotal = $itemsTotal + $childSalesTotal;
+                    } else {
+                        $displayTotal = $baseTotal + $childSalesTotal;
+                    }
+                    
                     // Check for custom pricing in play session notes
                     $hasCustomPrice = false;
-                    $customPriceForTotals = 0;
-                    
                     if ($sale->play_session && $sale->play_session->notes && strpos($sale->play_session->notes, 'Manual price set by cashier') !== false) {
                         $hasCustomPrice = true;
-                        $notes = explode("\n\n", $sale->play_session->notes);
-                        
-                        foreach ($notes as $note) {
-                            if (strpos($note, 'Manual price set by cashier') !== false) {
-                                if ($sale->payment_method === 'LBP') {
-                                    preg_match('/Manual price set by cashier: (.*?) LBP\./', $note, $matches);
-                                } else {
-                                    preg_match('/Manual price set by cashier: \$(.*?)\./', $note, $matches);
-                                }
-                                
-                                if (isset($matches[1])) {
-                                    // Clean up the number (remove commas)
-                                    $customPriceNumeric = str_replace(',', '', $matches[1]);
-                                    $customPriceForTotals = (float)$customPriceNumeric;
-                                    
-                                    // For USD, no conversion needed
-                                    if ($sale->payment_method === 'LBP') {
-                                        // For display in the total column, we'll keep it in LBP
-                                        $displayTotal = $customPriceForTotals;
-                                    } else {
-                                        $displayTotal = $customPriceForTotals;
-                                    }
-                                }
-                                break;
-                            }
-                        }
-                    } else {
-                        // Standard calculation
-                        $displayTotal = ($baseTotal + $childSalesTotal) * $multiplier;
                     }
                 @endphp
                 <tr class="border-b hover:bg-gray-50">
@@ -149,7 +126,7 @@
                                 @endif
                                 <span class="text-xs text-gray-500">
                                     @if($sale->payment_method === 'LBP')
-                                        {{ number_format($item->subtotal * config('play.lbp_exchange_rate', 90000)) }} L.L
+                                        {{ number_format($item->subtotal) }} L.L
                                     @else
                                         ${{ number_format($item->subtotal, 2) }}
                                     @endif

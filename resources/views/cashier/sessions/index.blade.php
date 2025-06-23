@@ -143,7 +143,7 @@
                                     @endphp
                                     @if($amountPaid)
                                         @if($paymentMethod === 'LBP')
-                                            {{ number_format($amountPaid * config('play.lbp_exchange_rate', 90000)) }} L.L
+                                            {{ number_format($amountPaid) }} L.L
                                         @else
                                             ${{ number_format($amountPaid, 2) }}
                                         @endif
@@ -311,7 +311,7 @@
                                     @endphp
                                     @if($amountPaid)
                                         @if($paymentMethod === 'LBP')
-                                            {{ number_format($amountPaid * config('play.lbp_exchange_rate', 90000)) }} L.L
+                                            {{ number_format($amountPaid) }} L.L
                                         @else
                                             ${{ number_format($amountPaid, 2) }}
                                         @endif

@@ -77,7 +77,7 @@
                         <td class="px-4 py-2">
                             @if($sale->amount_paid)
                                 @if($sale->payment_method === 'LBP')
-                                    {{ number_format($sale->amount_paid * config('play.lbp_exchange_rate', 90000)) }} L.L
+                                    {{ number_format($sale->amount_paid) }} L.L
                                 @else
                                     ${{ number_format($sale->amount_paid, 2) }}
                                 @endif
@@ -132,7 +132,7 @@
                         <td class="px-4 py-2">
                             @foreach($sale->items as $item)
                                 @if($sale->payment_method === 'LBP')
-                                    {{ number_format($item->unit_price * config('play.lbp_exchange_rate', 90000)) }} L.L
+                                    {{ number_format($item->unit_price) }} L.L
                                 @else
                                     ${{ number_format($item->unit_price, 2) }}
                                 @endif
@@ -141,7 +141,7 @@
                         <td class="px-4 py-2">
                             @if($sale->amount_paid)
                                 @if($sale->payment_method === 'LBP')
-                                    {{ number_format($sale->amount_paid * config('play.lbp_exchange_rate', 90000)) }} L.L
+                                    {{ number_format($sale->amount_paid) }} L.L
                                 @else
                                     ${{ number_format($sale->amount_paid, 2) }}
                                 @endif

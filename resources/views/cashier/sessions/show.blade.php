@@ -238,7 +238,7 @@
                         <div class="py-2 px-3 bg-gray-50 font-medium text-xs text-gray-600">Amount Paid</div>
                         <div class="py-2 px-3 col-span-2">
                             @if($sessionPaymentMethod === 'LBP')
-                                {{ number_format($sessionAmountPaid * config('play.lbp_exchange_rate', 90000)) }} L.L
+                                {{ number_format($sessionAmountPaid) }} L.L
                             @else
                                 ${{ number_format($sessionAmountPaid, 2) }}
                             @endif
@@ -265,7 +265,7 @@
                         <div class="py-2 px-3 bg-gray-50 font-medium text-xs text-gray-600">Total Cost</div>
                         <div class="py-2 px-3 col-span-2 font-medium">
                             @if($session->payment_method === 'LBP')
-                                {{ number_format($session->total_cost * config('play.lbp_exchange_rate', 90000)) }} L.L
+                                {{ number_format($session->total_cost) }} L.L
                             @else
                                 ${{ number_format($session->total_cost, 2) }}
                             @endif
@@ -360,14 +360,22 @@
                                 <td class="px-4 py-2 whitespace-nowrap text-sm">{{ $addOn->pivot->qty }}</td>
                                 <td class="px-4 py-2 whitespace-nowrap text-sm">
                                     @if($session->payment_method === 'LBP')
-                                        {{ number_format($addOn->price * config('play.lbp_exchange_rate', 90000)) }} L.L
+                                        @php
+                                        // Add-ons have USD prices, need to convert to LBP for display
+                                        $addOnPriceLbp = $addOn->price * config('play.lbp_exchange_rate', 90000);
+                                        @endphp
+                                        {{ number_format($addOnPriceLbp) }} L.L
                                     @else
                                         ${{ number_format($addOn->price, 2) }}
                                     @endif
                                 </td>
                                 <td class="px-4 py-2 whitespace-nowrap text-sm font-medium">
                                     @if($session->payment_method === 'LBP')
-                                        {{ number_format($addOn->pivot->subtotal * config('play.lbp_exchange_rate', 90000)) }} L.L
+                                        @php
+                                        // Add-on subtotals in pivot are in USD, need to convert to LBP for display
+                                        $addOnSubtotalLbp = $addOn->pivot->subtotal * config('play.lbp_exchange_rate', 90000);
+                                        @endphp
+                                        {{ number_format($addOnSubtotalLbp) }} L.L
                                     @else
                                         ${{ number_format($addOn->pivot->subtotal, 2) }}
                                     @endif
@@ -380,7 +388,11 @@
                                 <td colspan="3" class="px-4 py-2 text-sm font-medium text-right">Total Add-ons:</td>
                                 <td class="px-4 py-2 whitespace-nowrap text-sm font-bold">
                                     @if($session->payment_method === 'LBP')
-                                        {{ number_format($session->addOns->sum('pivot.subtotal') * config('play.lbp_exchange_rate', 90000)) }} L.L
+                                        @php
+                                        // Add-on totals in pivot are in USD, need to convert to LBP for display
+                                        $addOnsTotalLbp = $session->addOns->sum('pivot.subtotal') * config('play.lbp_exchange_rate', 90000);
+                                        @endphp
+                                        {{ number_format($addOnsTotalLbp) }} L.L
                                     @else
                                         ${{ number_format($session->addOns->sum('pivot.subtotal'), 2) }}
                                     @endif

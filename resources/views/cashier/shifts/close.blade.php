@@ -103,8 +103,7 @@
                                 <span>{{ $method }}:</span>
                                 <span class="font-medium">
                                     @if($method === 'LBP')
-                                        L.L {{ number_format($amount * config('play.lbp_exchange_rate', 90000), 0) }}
-                                        (${{ number_format($amount, 2) }})
+                                        L.L {{ number_format($amount, 0) }}
                                     @else
                                         ${{ number_format($amount, 2) }}
                                     @endif
