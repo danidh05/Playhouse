@@ -427,8 +427,24 @@
         // Duration for display (difference between start and end time)
         if ($sale->play_session->ended_at) {
             $sessionDuration = $sale->play_session->started_at->diffAsCarbonInterval($sale->play_session->ended_at)->cascade();
+            
+            // Calculate billed hours for display
+            $actualMinutes = $sale->play_session->started_at->diffInMinutes($sale->play_session->ended_at);
+            $displayHours = round($actualMinutes / 60, 2);
+            
+            // Use billed_hours if available, otherwise calculate from actual time
+            if ($sale->play_session->billed_hours !== null) {
+                $billedHours = $sale->play_session->billed_hours;
+            } else {
+                // Legacy calculation - use actual time or planned time, whichever is appropriate
+                $billedHours = $displayHours;
+            }
+            
+            $billTimeDisplay = number_format($billedHours, 2) . 'h';
         } else {
             $sessionDuration = $sale->play_session->started_at->diffAsCarbonInterval(now())->cascade();
+            $displayHours = 0;
+            $billTimeDisplay = 'Session ongoing';
         }
         @endphp
         <div class="border-t p-6">
