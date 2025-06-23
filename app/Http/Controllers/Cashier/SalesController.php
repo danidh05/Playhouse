@@ -140,12 +140,8 @@ class SalesController extends Controller
                     return redirect()->back()->with('error', "Not enough stock for {$product->name}");
                 }
                 
-                // Convert item price to USD if payment method is LBP
+                // Keep item price in original currency (no conversion for storage)
                 $itemPrice = $item['price'];
-                if ($paymentMethod === 'LBP') {
-                    $itemPrice = round($itemPrice / $lbpRate, 2);
-                }
-                
                 $itemTotal = $itemPrice * $item['qty'];
                 $totalAmount += $itemTotal;
                 
@@ -153,13 +149,10 @@ class SalesController extends Controller
                 $product->decrement('stock_qty', $item['qty']);
             }
             
-            // Convert amount_paid to USD if payment method is LBP
+            // Keep amount_paid in original currency (no conversion for storage)
             $amountPaid = $request->amount_paid;
-            if ($paymentMethod === 'LBP') {
-                $amountPaid = round($amountPaid / $lbpRate, 2);
-            }
             
-            // Create the sale record with converted amounts
+            // Create the sale record in original currency (no conversion)
             $sale = new Sale([
                 'user_id' => Auth::id(),
                 'shift_id' => $request->shift_id,
@@ -167,7 +160,7 @@ class SalesController extends Controller
                 'amount_paid' => $amountPaid,
                 'total_amount' => $totalAmount,
                 'status' => 'completed',
-                'currency' => $currency,
+                'currency' => $paymentMethod === 'LBP' ? 'LBP' : 'USD',
             ]);
             
             if ($request->has('child_id') && !empty($request->child_id)) {
@@ -176,13 +169,9 @@ class SalesController extends Controller
             
             $sale->save();
             
-            // Create sale items with converted prices
+            // Create sale items in original currency (no conversion)
             foreach ($items as $id => $item) {
-                // Convert item price to USD if payment method is LBP (same logic as above)
                 $itemPrice = $item['price'];
-                if ($paymentMethod === 'LBP') {
-                    $itemPrice = round($itemPrice / $lbpRate, 2);
-                }
                 
                 SaleItem::create([
                     'sale_id' => $sale->id,

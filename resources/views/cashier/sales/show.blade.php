@@ -359,19 +359,7 @@
                         @endif
                     </p>
                 </div>
-                @php
-                // Use the combined total from earlier calculation or custom price if set
-                if ($hasCustomPrice) {
-                    if ($sale->payment_method === 'LBP') {
-                        // For LBP, use the custom price directly
-                        $total = $customPriceForTotals / $lbpRate; // Convert to USD for internal calculations
-                    } else {
-                        $total = $customPriceForTotals;
-                    }
-                } else {
-                    $total = $baseTotal + $childSalesTotal;
-                }
-                @endphp
+
 
                 <div>
                     <p class="text-sm text-gray-500">Total:</p>
