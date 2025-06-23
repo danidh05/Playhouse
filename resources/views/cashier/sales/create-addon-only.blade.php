@@ -50,6 +50,8 @@
             <!-- Add-ons Selection -->
             <div class="bg-white rounded-lg shadow-md p-6">
                 <h2 class="text-lg font-semibold mb-4">Available Add-ons</h2>
+                
+
 
                 <div class="space-y-4">
                     @foreach($addOns as $addOn)
@@ -58,11 +60,12 @@
                             <div>
                                 <h3 class="font-medium text-lg">{{ $addOn->name }}</h3>
                                 <p class="text-gray-600 text-sm">Base Price: ${{ number_format($addOn->price, 2) }}</p>
+                                <p class="text-gray-600 text-xs">LBP Price: {{ number_format($addOn->price * config('play.lbp_exchange_rate', 90000)) }} L.L</p>
                             </div>
                             <div class="flex items-center space-x-2">
                                 <label class="text-sm">Qty:</label>
                                 <input type="number" name="add_ons[{{ $addOn->id }}][qty]" value="0" 
-                                    min="0" step="0.5" class="border rounded w-16 p-1 text-center addon-qty" 
+                                    min="0" step="0.01" class="border rounded w-16 p-1 text-center addon-qty" 
                                     data-price="{{ $addOn->price }}" data-id="{{ $addOn->id }}" 
                                     data-name="{{ $addOn->name }}">
                             </div>
@@ -269,11 +272,11 @@ function setupEventListeners() {
             return false;
         }
         
-        // Check if any add-ons are selected
-        const hasAddOns = Array.from(document.querySelectorAll('.addon-qty')).some(input => parseFloat(input.value) > 0);
+        // Check if any add-ons are selected with valid quantities
+        const hasAddOns = Array.from(document.querySelectorAll('.addon-qty')).some(input => parseFloat(input.value) >= 0.01);
         if (!hasAddOns) {
             e.preventDefault();
-            alert('Please select at least one add-on.');
+            alert('Please select at least one add-on with a quantity of 0.01 or more.');
             return false;
         }
         
@@ -373,9 +376,9 @@ function updateChangeDisplay() {
 function validateForm() {
     const childId = document.getElementById('child_id').value;
     const customTotal = parseFloat(document.getElementById('custom_total').value) || 0;
-    const hasAddOns = Array.from(document.querySelectorAll('.addon-qty')).some(input => parseFloat(input.value) > 0);
+    const hasAddOns = Array.from(document.querySelectorAll('.addon-qty')).some(input => parseFloat(input.value) >= 0.01);
     const submitBtn = document.getElementById('submit-btn');
-    
+
     const isValid = childId && customTotal > 0 && hasAddOns;
     
     submitBtn.disabled = !isValid;

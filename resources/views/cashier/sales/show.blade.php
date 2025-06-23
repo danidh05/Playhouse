@@ -91,7 +91,7 @@
                     </thead>
                     <tbody class="bg-white divide-y divide-gray-200">
                         @php
-                        $lbpRate = config('play.lbp_exchange_rate');
+                        $lbpRate = config('play.lbp_exchange_rate', 90000);
                         $suffix = $sale->payment_method === 'LBP' ? ' L.L' : '';
                         // Since we now store amounts in their original currency, no multiplier needed
                         $multiplier = 1;

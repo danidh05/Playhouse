@@ -293,8 +293,10 @@
                     <div class="grid grid-cols-3">
                         <div class="py-2 px-3 bg-gray-50 font-medium text-xs text-gray-600">Total Cost</div>
                         <div class="py-2 px-3 col-span-2 font-medium">
-                            @if($session->payment_method === 'LBP')
+                            @if($sessionPaymentMethod === 'LBP')
                                 {{ number_format($session->total_cost) }} L.L
+                            @elseif($sessionPaymentMethod === null)
+                                <span class="text-orange-600">{{ number_format($session->total_cost, 2) }} (No payment method set)</span>
                             @else
                                 ${{ number_format($session->total_cost, 2) }}
                             @endif

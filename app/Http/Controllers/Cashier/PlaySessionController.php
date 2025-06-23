@@ -639,8 +639,8 @@ class PlaySessionController extends Controller
         // Update session - store amounts in selected currency without conversion
         $session->ended_at = now();
         $session->payment_method = $paymentMethod;
-        $session->total_cost = $totalCost;
-        $session->amount_paid = $amountPaid;
+        $session->total_cost = $totalAmountToStore;
+        $session->amount_paid = $amountPaidToStore;
         $session->save();
 
         // Create or update the main sale for this session
@@ -648,8 +648,8 @@ class PlaySessionController extends Controller
         
         if ($existingSale) {
             $existingSale->update([
-                'total_amount' => $totalCost,
-                'amount_paid' => $amountPaid,
+                'total_amount' => $totalAmountToStore,
+                'amount_paid' => $amountPaidToStore,
                 'payment_method' => $paymentMethod,
                 'currency' => $paymentMethod,
                 'status' => 'completed'
@@ -661,8 +661,8 @@ class PlaySessionController extends Controller
                 'shift_id' => $session->shift_id,
                 'user_id' => Auth::id(),
                 'child_id' => $session->child_id,
-                'total_amount' => $totalCost,
-                'amount_paid' => $amountPaid,
+                'total_amount' => $totalAmountToStore,
+                'amount_paid' => $amountPaidToStore,
                 'payment_method' => $paymentMethod,
                 'currency' => $paymentMethod,
                 'status' => 'completed',

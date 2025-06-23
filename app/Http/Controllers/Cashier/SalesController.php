@@ -474,7 +474,7 @@ class SalesController extends Controller
             'custom_total' => 'required|numeric|min:0.01',
             'amount_paid' => 'required|numeric|min:0',
             'add_ons' => 'required|array|min:1',
-            'add_ons.*.qty' => 'required|numeric|min:0.1'
+            'add_ons.*.qty' => 'numeric|min:0.01'
         ]);
 
         // Find active shift
