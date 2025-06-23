@@ -54,7 +54,7 @@
                         <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Started</th>
                         <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Ended</th>
                         <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Duration</th>
-                        <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
+                        <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount Paid</th>
                         <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Payment</th>
                     </tr>
                 </thead>
@@ -74,7 +74,17 @@
                                 N/A
                             @endif
                         </td>
-                        <td class="px-4 py-2">${{ number_format($sale->total_amount, 2) }}</td>
+                        <td class="px-4 py-2">
+                            @if($sale->amount_paid)
+                                @if($sale->payment_method === 'LBP')
+                                    {{ number_format($sale->amount_paid * config('play.lbp_exchange_rate', 90000)) }} L.L
+                                @else
+                                    ${{ number_format($sale->amount_paid, 2) }}
+                                @endif
+                            @else
+                                <span class="text-red-600">Not Paid</span>
+                            @endif
+                        </td>
                         <td class="px-4 py-2">{{ $sale->payment_method }}</td>
                     </tr>
                     @endforeach
@@ -101,7 +111,7 @@
                         <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Product</th>
                         <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Quantity</th>
                         <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Unit Price</th>
-                        <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total</th>
+                        <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount Paid</th>
                         <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Payment</th>
                         <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Time</th>
                     </tr>
@@ -121,10 +131,24 @@
                         </td>
                         <td class="px-4 py-2">
                             @foreach($sale->items as $item)
-                                ${{ number_format($item->unit_price, 2) }}
+                                @if($sale->payment_method === 'LBP')
+                                    {{ number_format($item->unit_price * config('play.lbp_exchange_rate', 90000)) }} L.L
+                                @else
+                                    ${{ number_format($item->unit_price, 2) }}
+                                @endif
                             @endforeach
                         </td>
-                        <td class="px-4 py-2">${{ number_format($sale->total_amount, 2) }}</td>
+                        <td class="px-4 py-2">
+                            @if($sale->amount_paid)
+                                @if($sale->payment_method === 'LBP')
+                                    {{ number_format($sale->amount_paid * config('play.lbp_exchange_rate', 90000)) }} L.L
+                                @else
+                                    ${{ number_format($sale->amount_paid, 2) }}
+                                @endif
+                            @else
+                                <span class="text-red-600">Not Paid</span>
+                            @endif
+                        </td>
                         <td class="px-4 py-2">{{ $sale->payment_method }}</td>
                         <td class="px-4 py-2">{{ $sale->created_at->format('H:i') }}</td>
                     </tr>

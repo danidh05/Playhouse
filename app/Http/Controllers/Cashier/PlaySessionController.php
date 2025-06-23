@@ -21,13 +21,15 @@ class PlaySessionController extends Controller
      */
     public function index(Request $request)
     {
-        $activeSessions = PlaySession::whereNull('ended_at')->latest()->get();
+        $activeSessions = PlaySession::with('child')->whereNull('ended_at')->latest()->get();
         
         // Get filter parameter from request
         $filter = $request->input('filter', 'today');
         
-        // Base query for recent sessions
-        $recentSessionsQuery = PlaySession::whereNotNull('ended_at')->latest();
+        // Base query for recent sessions - eager load related data
+        $recentSessionsQuery = PlaySession::with(['child', 'sale'])
+            ->whereNotNull('ended_at')
+            ->latest();
         
         // Apply date filtering
         switch ($filter) {
@@ -94,18 +96,65 @@ class PlaySessionController extends Controller
         
         // Check if this would be a free session (for a specific child)
         $isFreeSession = false;
+        $loyaltyInfo = null;
         if ($child) {
-            // Count completed paid sessions for this child
+            // Count ALL paid sessions (both completed and incomplete with discount < 100%)
             $paidSessionsCount = PlaySession::where('child_id', $child->id)
-                ->whereNotNull('ended_at')
                 ->where('discount_pct', '<', 100) // Exclude free sessions
                 ->count();
             
+            // Check if there's already a free session that was started but not completed
+            $pendingFreeSession = PlaySession::where('child_id', $child->id)
+                ->whereNull('ended_at') // Not completed
+                ->where('discount_pct', '=', 100) // Free session
+                ->exists();
+            
+            // Also get total sessions for debugging
+            $totalSessionsCount = PlaySession::where('child_id', $child->id)->count();
+            $completedFreeSessionsCount = PlaySession::where('child_id', $child->id)
+                ->whereNotNull('ended_at')
+                ->where('discount_pct', '=', 100)
+                ->count();
+            $incompleteSessionsCount = PlaySession::where('child_id', $child->id)
+                ->whereNull('ended_at')
+                ->count();
+            
             // Every 6th session is free (after 5, 10, 15, etc. paid sessions)
-            $isFreeSession = ($paidSessionsCount > 0) && ($paidSessionsCount % 5 === 0);
+            // BUT only if there's no pending free session already
+            $isFreeSession = ($paidSessionsCount > 0) && ($paidSessionsCount % 5 === 0) && !$pendingFreeSession;
+            
+            // Calculate loyalty information for display
+            $remainingForFree = $paidSessionsCount > 0 ? (5 - ($paidSessionsCount % 5)) : 5;
+            if ($remainingForFree == 5 && $paidSessionsCount > 0) {
+                $remainingForFree = 0; // They're at a free session milestone
+            }
+            
+            $loyaltyInfo = [
+                'paid_sessions' => $paidSessionsCount,
+                'remaining_for_free' => $remainingForFree,
+                'next_free_at' => $paidSessionsCount + $remainingForFree,
+                'has_pending_free' => $pendingFreeSession
+            ];
+
+            // Optional: Log loyalty program decision for debugging (can be removed in production)
+            if (config('app.debug')) {
+                \Log::info('Loyalty Program Check', [
+                    'child_id' => $child->id,
+                    'child_name' => $child->name,
+                    'total_sessions' => $totalSessionsCount,
+                    'paid_sessions_count' => $paidSessionsCount,
+                    'completed_free_sessions_count' => $completedFreeSessionsCount,
+                    'incomplete_sessions_count' => $incompleteSessionsCount,
+                    'pending_free_session' => $pendingFreeSession,
+                    'is_free_session' => $isFreeSession,
+                    'modulo_result' => $paidSessionsCount % 5,
+                    'expected_next_session' => $paidSessionsCount + 1,
+                    'loyalty_info' => $loyaltyInfo
+                ]);
+            }
         }
         
-        return view('cashier.sessions.start', compact('child', 'children', 'activeShift', 'hourlyRate', 'isFreeSession'));
+        return view('cashier.sessions.start', compact('child', 'children', 'activeShift', 'hourlyRate', 'isFreeSession', 'loyaltyInfo'));
     }
 
     /**
@@ -139,14 +188,47 @@ class PlaySessionController extends Controller
         
         // Check if this would be a free session
         $paidSessionsCount = PlaySession::where('child_id', $child->id)
-            ->whereNotNull('ended_at')
             ->where('discount_pct', '<', 100) // Exclude free sessions
             ->count();
         
-        // Every 6th session is free (after 5, 10, 15, etc. paid sessions)
-        $isFreeSession = ($paidSessionsCount > 0) && ($paidSessionsCount % 5 === 0);
+        // Check if there's already a free session that was started but not completed
+        $pendingFreeSession = PlaySession::where('child_id', $child->id)
+            ->whereNull('ended_at') // Not completed
+            ->where('discount_pct', '=', 100) // Free session
+            ->exists();
         
-        return view('cashier.sessions.start', compact('child', 'children', 'activeShift', 'hourlyRate', 'isFreeSession'));
+        // Every 6th session is free (after 5, 10, 15, etc. paid sessions)
+        // BUT only if there's no pending free session already
+        $isFreeSession = ($paidSessionsCount > 0) && ($paidSessionsCount % 5 === 0) && !$pendingFreeSession;
+        
+        // Calculate loyalty information for display
+        $remainingForFree = $paidSessionsCount > 0 ? (5 - ($paidSessionsCount % 5)) : 5;
+        if ($remainingForFree == 5 && $paidSessionsCount > 0) {
+            $remainingForFree = 0; // They're at a free session milestone
+        }
+        
+        $loyaltyInfo = [
+            'paid_sessions' => $paidSessionsCount,
+            'remaining_for_free' => $remainingForFree,
+            'next_free_at' => $paidSessionsCount + $remainingForFree,
+            'has_pending_free' => $pendingFreeSession
+        ];
+
+        // Optional: Log loyalty program decision for debugging (can be removed in production)
+        if (config('app.debug')) {
+            \Log::info('Loyalty Program Check (start method)', [
+                'child_id' => $child->id,
+                'child_name' => $child->name,
+                'paid_sessions_count' => $paidSessionsCount,
+                'pending_free_session' => $pendingFreeSession,
+                'is_free_session' => $isFreeSession,
+                'modulo_result' => $paidSessionsCount % 5,
+                'expected_next_session' => $paidSessionsCount + 1,
+                'loyalty_info' => $loyaltyInfo
+            ]);
+        }
+        
+        return view('cashier.sessions.start', compact('child', 'children', 'activeShift', 'hourlyRate', 'isFreeSession', 'loyaltyInfo'));
     }
 
     /**
@@ -159,12 +241,30 @@ class PlaySessionController extends Controller
         // Check if this should be a free session
         $childId = $validated['child_id'];
         $paidSessionsCount = PlaySession::where('child_id', $childId)
-            ->whereNotNull('ended_at')
             ->where('discount_pct', '<', 100) // Exclude free sessions
             ->count();
         
+        // Check if there's already a free session that was started but not completed
+        $pendingFreeSession = PlaySession::where('child_id', $childId)
+            ->whereNull('ended_at') // Not completed
+            ->where('discount_pct', '=', 100) // Free session
+            ->exists();
+        
         // Every 6th session is free (after 5, 10, 15, etc. paid sessions)
-        $isFreeSession = ($paidSessionsCount > 0) && ($paidSessionsCount % 5 === 0);
+        // BUT only if there's no pending free session already
+        $isFreeSession = ($paidSessionsCount > 0) && ($paidSessionsCount % 5 === 0) && !$pendingFreeSession;
+        
+        // Optional: Log loyalty program decision for debugging (can be removed in production)
+        if (config('app.debug')) {
+            \Log::info('Loyalty Program Check (store method)', [
+                'child_id' => $childId,
+                'paid_sessions_count' => $paidSessionsCount,
+                'pending_free_session' => $pendingFreeSession,
+                'is_free_session' => $isFreeSession,
+                'modulo_result' => $paidSessionsCount % 5,
+                'expected_next_session' => $paidSessionsCount + 1
+            ]);
+        }
         
         // If this is a free session, override planned_hours and discount_pct
         if ($isFreeSession) {
@@ -234,8 +334,8 @@ class PlaySessionController extends Controller
      */
     public function show(PlaySession $session)
     {
-        // Load relationships
-        $session->load(['child', 'user', 'shift', 'addOns']);
+        // Load relationships including sale
+        $session->load(['child', 'user', 'shift', 'addOns', 'sale']);
         
         // Get total play sessions count for this child
         $playSessionsCount = PlaySession::where('child_id', $session->child_id)->count();
@@ -258,8 +358,8 @@ class PlaySessionController extends Controller
             $progress = min(100, ($minutesTotal / $plannedMinutes) * 100);
         }
         
-        // Check if there's a related sale
-        $sale = \App\Models\Sale::where('play_session_id', $session->id)->first();
+        // Use the eager-loaded sale relationship
+        $sale = $session->sale;
         
         return view('cashier.sessions.show', compact('session', 'duration', 'progress', 'sale', 'playSessionsCount'));
     }
@@ -485,10 +585,11 @@ class PlaySessionController extends Controller
         $paymentMethod = $request->payment_method;
         $lbpRate = config('play.lbp_exchange_rate', 90000);
     
+        // Store amounts in the original currency to preserve cashier's exact input
         if ($paymentMethod === 'LBP') {
-            // Convert the custom price from LBP to USD for storage
-            $totalAmountUsd = round($request->custom_total / $lbpRate, 2);
-            $amountPaidUsd = round($request->amount_paid / $lbpRate, 2);
+            // For LBP payments, store the LBP amounts directly (don't convert to USD)
+            $totalAmountToStore = round($request->custom_total, 0); // LBP amounts (no decimals)
+            $amountPaidToStore = round($request->amount_paid, 0); // LBP amounts (no decimals)
             
             // Add a note if the manual price differs from the calculated price
             $calculatedAmountLbp = round($calculatedTotalCost * $lbpRate);
@@ -503,13 +604,13 @@ class PlaySessionController extends Controller
                 }
             }
         } else {
-            // For USD payments
-            $totalAmountUsd = round($request->custom_total, 2);
-            $amountPaidUsd = round($request->amount_paid, 2);
+            // For USD payments, store USD amounts
+            $totalAmountToStore = round($request->custom_total, 2);
+            $amountPaidToStore = round($request->amount_paid, 2);
             
             // Add a note if the manual price differs from the calculated price
-            if (abs($totalAmountUsd - $calculatedTotalCost) > 0.01) {
-                $customPriceNote = "Note: Manual price set by cashier: $" . number_format($totalAmountUsd, 2) . ". ";
+            if (abs($totalAmountToStore - $calculatedTotalCost) > 0.01) {
+                $customPriceNote = "Note: Manual price set by cashier: $" . number_format($totalAmountToStore, 2) . ". ";
                 $customPriceNote .= "Standard calculated price would have been: $" . number_format($calculatedTotalCost, 2) . ".";
                 
                 if ($session->notes) {
@@ -520,13 +621,22 @@ class PlaySessionController extends Controller
             }
         }
     
-        // Update play session
+        // Update play session (store amounts in original currency for LBP, USD equivalent for USD)
+        if ($paymentMethod === 'LBP') {
+            // For LBP, we still store USD equivalent in the session for backward compatibility
+            $sessionAmountPaid = round($amountPaidToStore / $lbpRate, 2);
+            $sessionTotalCost = round($totalAmountToStore / $lbpRate, 2);
+        } else {
+            $sessionAmountPaid = $amountPaidToStore;
+            $sessionTotalCost = $totalAmountToStore;
+        }
+        
         $session->update([
             'ended_at' => $endTime,
             'actual_hours' => $actualHours,
-            'amount_paid' => $amountPaidUsd,
+            'amount_paid' => $sessionAmountPaid,
             'payment_method' => $paymentMethod,
-            'total_cost' => $totalAmountUsd, // Use the custom price here
+            'total_cost' => $sessionTotalCost,
             'notes' => $session->notes // Updated with custom price notes
         ]);
     
@@ -553,23 +663,26 @@ class PlaySessionController extends Controller
         $sale = \App\Models\Sale::create([
             'shift_id' => $currentCashierShift->id, // Associate with current cashier's shift
             'user_id' => Auth::id(), // Current user
-            'total_amount' => $totalAmountUsd, // Using the custom price set by cashier
-            'amount_paid' => $amountPaidUsd,
+            'total_amount' => $totalAmountToStore, // Store in original currency (LBP or USD)
+            'amount_paid' => $amountPaidToStore, // Store in original currency (LBP or USD)
             'payment_method' => $paymentMethod,
+            'currency' => $paymentMethod === 'LBP' ? 'LBP' : 'USD', // Set correct currency
             'child_id' => $session->child_id,
             'play_session_id' => $session->id,
             'status' => 'completed'
         ]);
         
-        // Create sale items for session time and add-ons first
-        // Session time item
+        // Create sale items for session time and add-ons
+        // For LBP sales, we need to convert the time cost to LBP for the sale item
         if ($timeCost > 0) {
+            $itemTimeCost = $paymentMethod === 'LBP' ? round($timeCost * $lbpRate, 0) : $timeCost;
+            
             \App\Models\SaleItem::create([
                 'sale_id' => $sale->id,
                 'product_id' => null, // No product for session time
                 'quantity' => 1,
-                'unit_price' => $timeCost,
-                'subtotal' => $timeCost,
+                'unit_price' => $itemTimeCost,
+                'subtotal' => $itemTimeCost,
                 'description' => 'Play session (' . number_format($actualHours, 2) . ' hours)' . 
                                ($session->discount_pct > 0 ? ' - ' . $session->discount_pct . '% discount applied' : '')
             ]);
@@ -577,12 +690,15 @@ class PlaySessionController extends Controller
         
         // Add-ons items
         foreach ($session->addOns as $addon) {
+            $itemPrice = $paymentMethod === 'LBP' ? round($addon->price * $lbpRate, 0) : $addon->price;
+            $itemSubtotal = $paymentMethod === 'LBP' ? round($addon->pivot->subtotal * $lbpRate, 0) : $addon->pivot->subtotal;
+            
             \App\Models\SaleItem::create([
                 'sale_id' => $sale->id,
                 'product_id' => null, // No product for add-ons
                 'quantity' => $addon->pivot->qty,
-                'unit_price' => $addon->price,
-                'subtotal' => $addon->pivot->subtotal,
+                'unit_price' => $itemPrice,
+                'subtotal' => $itemSubtotal,
                 'description' => $addon->name . ' (add-on)'
             ]);
         }
@@ -591,12 +707,16 @@ class PlaySessionController extends Controller
         foreach($pendingSales as $pendingSale) {
             // Copy each product item from pending sale to main sale
             foreach($pendingSale->items as $item) {
+                // Convert product prices to the payment currency
+                $productPrice = $paymentMethod === 'LBP' ? round($item->unit_price * $lbpRate, 0) : $item->unit_price;
+                $productSubtotal = $paymentMethod === 'LBP' ? round($item->subtotal * $lbpRate, 0) : $item->subtotal;
+                
                 \App\Models\SaleItem::create([
                     'sale_id' => $sale->id,
                     'product_id' => $item->product_id,
                     'quantity' => $item->quantity,
-                    'unit_price' => $item->unit_price,
-                    'subtotal' => $item->subtotal,
+                    'unit_price' => $productPrice,
+                    'subtotal' => $productSubtotal,
                     'description' => $item->product->name
                 ]);
             }

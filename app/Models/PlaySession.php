@@ -99,6 +99,22 @@ class PlaySession extends Model
     }
 
     /**
+     * Get the sales associated with this play session.
+     */
+    public function sales(): HasMany
+    {
+        return $this->hasMany(Sale::class, 'play_session_id');
+    }
+
+    /**
+     * Get the main sale record for this play session (there should only be one).
+     */
+    public function sale(): HasOne
+    {
+        return $this->hasOne(Sale::class, 'play_session_id');
+    }
+
+    /**
      * Get start_time attribute (maps to started_at).
      */
     public function getStartTimeAttribute()

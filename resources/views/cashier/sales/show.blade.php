@@ -187,18 +187,14 @@
                             $childSalesTotal = $sale->child_sales->sum('total_amount');
                         }
 
-                        // For display purposes
-                        if ($hasCustomPrice) {
-                            if ($sale->payment_method === 'LBP') {
-                                // For LBP, use the custom price directly (already in LBP)
-                                $displayTotal = $customPriceForTotals;
-                            } else {
-                                // For USD, apply the multiplier (which is 1 for USD)
-                                $displayTotal = $customPriceForTotals * $multiplier;
-                            }
-                        } else {
-                            // Normal calculation when no custom price
-                            $displayTotal = ($baseTotal + $childSalesTotal) * $multiplier;
+                        // For display purposes, use the sale total_amount directly
+                        $displayTotal = $sale->total_amount;
+                        $suffix = $sale->payment_method === 'LBP' ? ' L.L' : '';
+                        
+                        // Check for custom pricing from session notes
+                        $hasCustomPrice = false;
+                        if ($sale->play_session && $sale->play_session->notes && strpos($sale->play_session->notes, 'Manual price set by cashier') !== false) {
+                            $hasCustomPrice = true;
                         }
                         @endphp
 
@@ -286,14 +282,14 @@
                                 <td class="px-4 py-3 text-center">{{ $item->quantity }}</td>
                                 <td class="px-4 py-3 text-right">
                                     @if($sale->payment_method === 'LBP')
-                                    {{ number_format($item->unit_price * config('play.lbp_exchange_rate', 90000)) }} L.L
+                                    {{ number_format($item->unit_price) }} L.L
                                     @else
                                     ${{ number_format($item->unit_price, 2) }}
                                     @endif
                                 </td>
                                 <td class="px-4 py-3 text-right">
                                     @if($sale->payment_method === 'LBP')
-                                    {{ number_format($item->subtotal * config('play.lbp_exchange_rate', 90000)) }} L.L
+                                    {{ number_format($item->subtotal) }} L.L
                                     @else
                                     ${{ number_format($item->subtotal, 2) }}
                                     @endif
@@ -306,7 +302,11 @@
                         <tr>
                             <td colspan="3" class="px-4 py-3 text-sm font-medium text-gray-900 text-right">Total:</td>
                             <td class="px-4 py-3 whitespace-nowrap text-base font-bold text-gray-900 text-right">
-                                {{ number_format($displayTotal, 2) }}{{ $suffix }}
+                                @if($sale->payment_method === 'LBP')
+                                {{ number_format($displayTotal) }} L.L
+                                @else
+                                ${{ number_format($displayTotal, 2) }}
+                                @endif
                                 @if($hasCustomPrice)
                                 <div class="text-xs text-blue-600">(Custom price set by cashier)</div>
                                 @endif
@@ -343,7 +343,7 @@
                     <p class="text-sm text-gray-500">Amount Paid:</p>
                     <p class="font-medium">
                         @if($sale->payment_method === 'LBP')
-                        {{ number_format($sale->amount_paid * config('play.lbp_exchange_rate', 90000)) }} L.L
+                        {{ number_format($sale->amount_paid) }} L.L
                         @else
                         ${{ number_format($sale->amount_paid, 2) }}
                         @endif
@@ -377,17 +377,9 @@
                     <p class="text-sm text-gray-500">Total:</p>
                     <p class="font-medium">
                         @if($sale->payment_method === 'LBP')
-                            @if($hasCustomPrice)
-                            {{ $customPriceDisplay }}
-                            @else
-                            {{ number_format($total * config('play.lbp_exchange_rate', 90000)) }} L.L
-                            @endif
+                        {{ number_format($sale->total_amount) }} L.L
                         @else
-                            @if($hasCustomPrice)
-                            {{ $customPriceDisplay }}
-                            @else
-                            ${{ number_format($total, 2) }}
-                            @endif
+                        ${{ number_format($sale->total_amount, 2) }}
                         @endif
                         @if($hasCustomPrice)
                         <span class="text-xs text-blue-600 ml-2">(Custom price)</span>
@@ -398,27 +390,13 @@
                     <p class="text-sm text-gray-500">Change:</p>
                     <p class="font-medium">
                         @php
-                        // Calculate change as the difference between amount paid and combined total
-                        // For custom prices, ensure we're using the correct values for comparison
-                        if ($hasCustomPrice) {
-                            if ($sale->payment_method === 'LBP') {
-                                // For LBP, the amount paid is stored in USD, so convert before comparing
-                                $change = $sale->amount_paid - $total;
-                            } else {
-                                $change = $sale->amount_paid - $total;
-                            }
-                        } else {
-                            $change = $sale->amount_paid - $total;
-                        }
+                        // Calculate change as the difference between amount paid and total
+                        $change = $sale->amount_paid - $sale->total_amount;
                         @endphp
 
                         @if($change > 0)
                         @if($sale->payment_method === 'LBP')
-                            @if($hasCustomPrice)
-                            {{ number_format($change * $lbpRate) }} L.L
-                            @else
-                            {{ number_format($change * config('play.lbp_exchange_rate', 90000)) }} L.L
-                            @endif
+                        {{ number_format($change) }} L.L
                         @else
                         ${{ number_format($change, 2) }}
                         @endif

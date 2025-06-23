@@ -115,26 +115,14 @@ class SalesController extends Controller
         $items = $request->items;
         $totalAmount = 0;
         $currency = $request->currency;
+        $paymentMethod = $request->payment_method;
+        $lbpRate = config('play.lbp_exchange_rate', 90000);
         
         // Start database transaction
         DB::beginTransaction();
         
         try {
-            // Create the sale record
-            $sale = new Sale([
-                'user_id' => Auth::id(),
-                'shift_id' => $request->shift_id,
-                'payment_method' => $request->payment_method,
-                'amount_paid' => $request->amount_paid,
-                'status' => 'completed',
-                'currency' => $currency,
-            ]);
-            
-            if ($request->has('child_id') && !empty($request->child_id)) {
-                $sale->child_id = $request->child_id;
-            }
-            
-            // Process items
+            // Process items and calculate total
             foreach ($items as $id => $item) {
                 $product = Product::findOrFail($id);
                 
@@ -152,25 +140,56 @@ class SalesController extends Controller
                     return redirect()->back()->with('error', "Not enough stock for {$product->name}");
                 }
                 
-                $itemTotal = $item['price'] * $item['qty'];
+                // Convert item price to USD if payment method is LBP
+                $itemPrice = $item['price'];
+                if ($paymentMethod === 'LBP') {
+                    $itemPrice = round($itemPrice / $lbpRate, 2);
+                }
+                
+                $itemTotal = $itemPrice * $item['qty'];
                 $totalAmount += $itemTotal;
                 
                 // Reduce stock
                 $product->decrement('stock_qty', $item['qty']);
             }
             
-            // Set total amount and save the sale
-            $sale->total_amount = $totalAmount;
+            // Convert amount_paid to USD if payment method is LBP
+            $amountPaid = $request->amount_paid;
+            if ($paymentMethod === 'LBP') {
+                $amountPaid = round($amountPaid / $lbpRate, 2);
+            }
+            
+            // Create the sale record with converted amounts
+            $sale = new Sale([
+                'user_id' => Auth::id(),
+                'shift_id' => $request->shift_id,
+                'payment_method' => $paymentMethod,
+                'amount_paid' => $amountPaid,
+                'total_amount' => $totalAmount,
+                'status' => 'completed',
+                'currency' => $currency,
+            ]);
+            
+            if ($request->has('child_id') && !empty($request->child_id)) {
+                $sale->child_id = $request->child_id;
+            }
+            
             $sale->save();
             
-            // Create sale items
+            // Create sale items with converted prices
             foreach ($items as $id => $item) {
+                // Convert item price to USD if payment method is LBP (same logic as above)
+                $itemPrice = $item['price'];
+                if ($paymentMethod === 'LBP') {
+                    $itemPrice = round($itemPrice / $lbpRate, 2);
+                }
+                
                 SaleItem::create([
                     'sale_id' => $sale->id,
                     'product_id' => $id,
                     'quantity' => $item['qty'],
-                    'unit_price' => $item['price'],
-                    'subtotal' => $item['price'] * $item['qty'],
+                    'unit_price' => $itemPrice,
+                    'subtotal' => $itemPrice * $item['qty'],
                 ]);
             }
             
@@ -524,22 +543,25 @@ class SalesController extends Controller
                 $paymentMethod = $request->payment_method;
                 $lbpRate = config('play.lbp_exchange_rate', 90000);
                 
-                // Calculate total amount in USD
+                // Store amounts in original currency to preserve cashier input
                 if ($paymentMethod === 'LBP') {
-                    // Convert amount paid from LBP to USD
-                    $amountPaid = round($request->amount_paid / $lbpRate, 2);
+                    // For LBP payments, store LBP amounts directly and convert totalAmount too
+                    $amountPaid = round($request->amount_paid, 0);  // LBP (no decimals)
+                    $totalAmountToStore = round($totalAmount * $lbpRate, 0);  // Convert to LBP
                 } else {
-                    // For USD payments
+                    // For USD payments, store USD amounts
                     $amountPaid = round($request->amount_paid, 2);
+                    $totalAmountToStore = round($totalAmount, 2);
                 }
                 
                 // Create the sale
                 $sale = new Sale();
                 $sale->shift_id = $shift->id;
                 $sale->user_id = Auth::id();
-                $sale->total_amount = round($totalAmount, 2);
+                $sale->total_amount = $totalAmountToStore;
                 $sale->amount_paid = $amountPaid;
                 $sale->payment_method = $paymentMethod;
+                $sale->currency = $paymentMethod === 'LBP' ? 'LBP' : 'USD';
                 $sale->child_id = $request->child_id;
                 $sale->status = 'completed';
                 $sale->notes = 'Add-on only sale (no play session)';
@@ -549,14 +571,18 @@ class SalesController extends Controller
                 foreach ($addOnsWithQty as $addOnId => $data) {
                     $addOn = \App\Models\AddOn::find($addOnId);
                     
+                    // Convert prices to the payment currency for sale items
+                    $itemPrice = $paymentMethod === 'LBP' ? round($addOn->price * $lbpRate, 0) : $addOn->price;
+                    $itemSubtotal = $paymentMethod === 'LBP' ? round($data['subtotal'] * $lbpRate, 0) : $data['subtotal'];
+                    
                     // Create the sale item
                     $saleItem = new SaleItem();
                     $saleItem->sale_id = $sale->id;
                     $saleItem->product_id = null;  // No product
                     $saleItem->add_on_id = $addOn->id;
                     $saleItem->quantity = $data['qty'];
-                    $saleItem->unit_price = $addOn->price;
-                    $saleItem->subtotal = $data['subtotal'];
+                    $saleItem->unit_price = $itemPrice;
+                    $saleItem->subtotal = $itemSubtotal;
                     $saleItem->save();
                 }
                 

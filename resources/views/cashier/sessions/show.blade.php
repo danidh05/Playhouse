@@ -215,10 +215,16 @@
             <div>
                 <h2 class="text-sm font-medium text-gray-500 mb-2">PAYMENT INFORMATION</h2>
                 <div class="border rounded-lg overflow-hidden">
+                    @php
+                        // Use the eager-loaded sale relationship
+                        $sessionSale = $session->sale;
+                        $sessionAmountPaid = $sessionSale ? $sessionSale->amount_paid : $session->amount_paid;
+                        $sessionPaymentMethod = $sessionSale ? $sessionSale->payment_method : $session->payment_method;
+                    @endphp
                     <div class="grid grid-cols-3 border-b">
                         <div class="py-2 px-3 bg-gray-50 font-medium text-xs text-gray-600">Status</div>
                         <div class="py-2 px-3 col-span-2">
-                            @if($session->ended_at && $session->amount_paid)
+                            @if($session->ended_at && $sessionAmountPaid)
                                 <span class="px-2 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800">Paid</span>
                             @elseif($session->ended_at)
                                 <span class="px-2 py-1 text-xs font-semibold rounded-full bg-red-100 text-red-800">Not Paid</span>
@@ -227,14 +233,14 @@
                             @endif
                         </div>
                     </div>
-                    @if($session->amount_paid)
+                    @if($sessionAmountPaid)
                     <div class="grid grid-cols-3 border-b">
                         <div class="py-2 px-3 bg-gray-50 font-medium text-xs text-gray-600">Amount Paid</div>
                         <div class="py-2 px-3 col-span-2">
-                            @if($session->payment_method === 'LBP')
-                                {{ number_format($session->amount_paid * config('play.lbp_exchange_rate', 90000)) }} L.L
+                            @if($sessionPaymentMethod === 'LBP')
+                                {{ number_format($sessionAmountPaid * config('play.lbp_exchange_rate', 90000)) }} L.L
                             @else
-                                ${{ number_format($session->amount_paid, 2) }}
+                                ${{ number_format($sessionAmountPaid, 2) }}
                             @endif
                         </div>
                     </div>
@@ -242,9 +248,9 @@
                         <div class="py-2 px-3 bg-gray-50 font-medium text-xs text-gray-600">Payment Method</div>
                         <div class="py-2 px-3 col-span-2">
                             <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
-                                {{ $session->payment_method === 'LBP' ? 'bg-green-100 text-green-800' : 
+                                {{ $sessionPaymentMethod === 'LBP' ? 'bg-green-100 text-green-800' : 
                                    'bg-blue-100 text-blue-800' }}">
-                                {{ $session->payment_method }}
+                                {{ $sessionPaymentMethod }}
                             </span>
                         </div>
                     </div>

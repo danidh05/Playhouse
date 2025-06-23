@@ -135,11 +135,17 @@
                             </td>
                             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                                 @if($session->ended_at)
-                                    @if($session->amount_paid)
-                                        @if($session->payment_method === 'LBP')
-                                            {{ number_format($session->amount_paid * config('play.lbp_exchange_rate', 90000)) }} L.L
+                                    @php
+                                        // Use eager-loaded sale relationship
+                                        $sale = $session->sale;
+                                        $amountPaid = $sale ? $sale->amount_paid : $session->amount_paid;
+                                        $paymentMethod = $sale ? $sale->payment_method : $session->payment_method;
+                                    @endphp
+                                    @if($amountPaid)
+                                        @if($paymentMethod === 'LBP')
+                                            {{ number_format($amountPaid * config('play.lbp_exchange_rate', 90000)) }} L.L
                                         @else
-                                            ${{ number_format($session->amount_paid, 2) }}
+                                            ${{ number_format($amountPaid, 2) }}
                                         @endif
                                     @else
                                         <span class="text-red-600">Not Paid</span>
@@ -297,11 +303,17 @@
                             </td>
                             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                                 @if($session->ended_at)
-                                    @if($session->amount_paid)
-                                        @if($session->payment_method === 'LBP')
-                                            {{ number_format($session->amount_paid * config('play.lbp_exchange_rate', 90000)) }} L.L
+                                    @php
+                                        // Use eager-loaded sale relationship
+                                        $sale = $session->sale;
+                                        $amountPaid = $sale ? $sale->amount_paid : $session->amount_paid;
+                                        $paymentMethod = $sale ? $sale->payment_method : $session->payment_method;
+                                    @endphp
+                                    @if($amountPaid)
+                                        @if($paymentMethod === 'LBP')
+                                            {{ number_format($amountPaid * config('play.lbp_exchange_rate', 90000)) }} L.L
                                         @else
-                                            ${{ number_format($session->amount_paid, 2) }}
+                                            ${{ number_format($amountPaid, 2) }}
                                         @endif
                                     @else
                                         <span class="text-red-600">Not Paid</span>
