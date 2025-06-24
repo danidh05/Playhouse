@@ -621,14 +621,34 @@ class PlaySessionController extends Controller
     
         // CRITICAL FIX: Store amounts in the same currency as payment_method
         if ($paymentMethod === 'LBP') {
-            // For LBP payments, store LBP amounts directly (no conversion)
-            $totalAmountToStore = round($request->total_cost, 0); // Store LBP amount as entered
-            $amountPaidToStore = round($request->amount_paid, 0); // Store LBP amount as entered
+            // SMART CONVERSION: If user enters a small amount (< 1000) for LBP,
+            // assume they meant USD and convert it to LBP
+            if ($request->total_cost < 1000) {
+                $lbpRate = config('play.lbp_exchange_rate', 90000);
+                $totalAmountToStore = round($request->total_cost * $lbpRate, 0); // Convert USD to LBP
+                $sessionNoteForConversion = "Note: Total cost of ${$request->total_cost} was automatically converted to " . number_format($totalAmountToStore) . " LBP.";
+                
+                if ($session->notes) {
+                    $session->notes .= "\n\n" . $sessionNoteForConversion;
+                } else {
+                    $session->notes = $sessionNoteForConversion;
+                }
+            } else {
+                // For LBP payments with large amounts, store LBP amounts directly
+                $totalAmountToStore = round($request->total_cost, 0); // Store LBP amount as entered
+            }
+            
+            // Apply same logic to amount paid
+            if ($request->amount_paid < 1000) {
+                $amountPaidToStore = round($request->amount_paid * $lbpRate, 0); // Convert USD to LBP
+            } else {
+                $amountPaidToStore = round($request->amount_paid, 0); // Store LBP amount as entered
+            }
             
             // For comparison notes, convert calculated USD amount to LBP
             $calculatedAmountLbp = round($calculatedTotalCost * $lbpRate);
-            if (abs($request->total_cost - $calculatedAmountLbp) > 0.01 * $calculatedAmountLbp) {
-                $customPriceNote = "Note: Manual price set by cashier: " . number_format($request->total_cost) . " LBP. ";
+            if (abs($totalAmountToStore - $calculatedAmountLbp) > 0.01 * $calculatedAmountLbp) {
+                $customPriceNote = "Note: Manual price set by cashier: " . number_format($totalAmountToStore) . " LBP. ";
                 $customPriceNote .= "Standard calculated price would have been: " . number_format($calculatedAmountLbp) . " LBP.";
                 
                 if ($session->notes) {

@@ -493,13 +493,30 @@ class SalesController extends Controller
             
             // CRITICAL FIX: Store amounts in the same currency as payment_method
             if ($paymentMethod === 'LBP') {
-                // For LBP payments, store LBP amounts directly
-                $totalAmountToStore = round($request->custom_total, 0); // Store LBP amount as entered
-                $amountPaidToStore = round($request->amount_paid, 0);  // Store LBP amount as entered
+                // SMART CONVERSION: If user enters a small amount (< 1000) for LBP,
+                // assume they meant USD and convert it to LBP
+                $lbpRate = config('play.lbp_exchange_rate', 90000);
+                
+                if ($request->custom_total < 1000) {
+                    $totalAmountToStore = round($request->custom_total * $lbpRate, 0); // Convert USD to LBP
+                    $conversionNote = "Total cost of ${$request->custom_total} was automatically converted to " . number_format($totalAmountToStore) . " LBP.";
+                } else {
+                    // For LBP payments with large amounts, store LBP amounts directly
+                    $totalAmountToStore = round($request->custom_total, 0); // Store LBP amount as entered
+                    $conversionNote = null;
+                }
+                
+                // Apply same logic to amount paid
+                if ($request->amount_paid < 1000) {
+                    $amountPaidToStore = round($request->amount_paid * $lbpRate, 0); // Convert USD to LBP
+                } else {
+                    $amountPaidToStore = round($request->amount_paid, 0); // Store LBP amount as entered
+                }
             } else {
                 // For USD payments, store USD amounts directly  
                 $totalAmountToStore = round($request->custom_total, 2); // Store USD amount as entered
                 $amountPaidToStore = round($request->amount_paid, 2);  // Store USD amount as entered
+                $conversionNote = null;
             }
             
             // Validate amount paid is sufficient
@@ -519,7 +536,7 @@ class SalesController extends Controller
                 'payment_method' => $paymentMethod,
                 'currency' => $paymentMethod,
                 'status' => 'completed',
-                'notes' => 'Add-on only sale (no play session)'
+                'notes' => $conversionNote ? 'Add-on only sale (no play session). ' . $conversionNote : 'Add-on only sale (no play session)'
             ]);
 
             // Create sale items for each add-on
