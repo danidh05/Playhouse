@@ -135,7 +135,14 @@
                                 </td>
                                 <td class="px-4 py-3 whitespace-nowrap text-right text-sm">
                                     @if($item->product_id)
-                                        {{ number_format($item->unit_price, 0) }} L.L
+                                        @php
+                                            $product = $item->product;
+                                        @endphp
+                                        @if($product->price_lbp > 0)
+                                            {{ number_format($product->price_lbp, 0) }} L.L
+                                        @else
+                                            ${{ number_format($product->price, 2) }} <span class="text-xs text-gray-500">(USD)</span>
+                                        @endif
                                     @elseif(strpos($item->description, 'Play session') !== false)
                                         @if($hasCustomPrice)
                                         <span class="text-blue-600 font-medium">Flat Rate</span>
@@ -165,7 +172,14 @@
                                             <div class="text-xs text-gray-500">Product (from session)</div>
                                         </td>
                                         <td class="px-4 py-3 whitespace-nowrap text-right text-sm">
-                                            {{ number_format($item->unit_price, 0) }} L.L
+                                            @php
+                                                $product = $item->product;
+                                            @endphp
+                                            @if($product->price_lbp > 0)
+                                                {{ number_format($product->price_lbp, 0) }} L.L
+                                            @else
+                                                ${{ number_format($product->price, 2) }} <span class="text-xs text-gray-500">(USD)</span>
+                                            @endif
                                         </td>
                                         <td class="px-4 py-3 whitespace-nowrap text-right text-sm">
                                             {{ $item->quantity }}
@@ -190,7 +204,27 @@
                                 </td>
                                 <td class="px-4 py-3 text-center">{{ $item->quantity }}</td>
                                 <td class="px-4 py-3 text-right">
-                                {{ number_format($item->unit_price, 0) }} L.L
+                                @if($item->product_id)
+                                    @php
+                                        $product = $item->product;
+                                    @endphp
+                                    @if($product->price_lbp > 0)
+                                        {{ number_format($product->price_lbp, 0) }} L.L
+                                    @else
+                                        ${{ number_format($product->price, 2) }} <span class="text-xs text-gray-500">(USD)</span>
+                                    @endif
+                                @elseif($item->add_on_id)
+                                    @php
+                                        $addOn = $item->addOn;
+                                    @endphp
+                                    @if($addOn->price_lbp > 0)
+                                        {{ number_format($addOn->price_lbp, 0) }} L.L
+                                    @else
+                                        ${{ number_format($addOn->price, 2) }} <span class="text-xs text-gray-500">(USD)</span>
+                                    @endif
+                                @else
+                                    {{ number_format($item->unit_price, 0) }} L.L
+                                @endif
                                 </td>
                                 <td class="px-4 py-3 text-right">
                                 {{ number_format($item->subtotal, 0) }} L.L

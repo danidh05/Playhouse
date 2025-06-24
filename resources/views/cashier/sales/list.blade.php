@@ -185,13 +185,18 @@
                                 @foreach($sale->items as $item)
                                 <div class="mb-1 last:mb-0">
                                     <span class="font-medium">{{ $item->quantity }}x</span> {{ $item->product->name }}
-                                    <span class="text-xs text-gray-500">
-                                        @if($sale->payment_method === 'LBP')
-                                            {{ number_format($item->subtotal) }} L.L
-                                        @else
-                                            ${{ number_format($item->subtotal, 2) }}
-                                        @endif
-                                    </span>
+                                    @if($item->product_id)
+                                        @php
+                                            $product = $item->product;
+                                        @endphp
+                                        <span class="text-xs text-gray-500">
+                                            @if($product->price_lbp > 0)
+                                                ({{ number_format($product->price_lbp, 0) }} L.L each)
+                                            @else
+                                                (${{ number_format($product->price, 2) }} USD each)
+                                            @endif
+                                        </span>
+                                    @endif
                                 </div>
                                 @endforeach
                             </div>

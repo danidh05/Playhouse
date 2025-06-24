@@ -69,8 +69,13 @@
                 onclick="addToOrder(this)">
                 <div class="text-center">
                     <div class="font-medium text-gray-800">{{ $product->name }}</div>
-                    <div class="text-gray-600">${{ number_format($product->price, 2) }}</div>
-                    <div class="text-gray-600">{{ number_format($product->price_lbp, 0) }} LBP</div>
+                    @if($product->price_lbp > 0)
+                        <div class="text-lg font-bold text-green-700">{{ number_format($product->price_lbp, 0) }} L.L</div>
+                        <div class="text-xs text-gray-500">${{ number_format($product->price, 2) }} USD</div>
+                    @else
+                        <div class="text-lg font-bold text-blue-700">${{ number_format($product->price, 2) }}</div>
+                        <div class="text-xs text-orange-600">USD only</div>
+                    @endif
                     <div class="text-xs text-gray-500">Stock: {{ $product->stock_qty }}</div>
                 </div>
             </div>

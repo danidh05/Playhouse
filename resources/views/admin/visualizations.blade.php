@@ -23,11 +23,27 @@
     </div>
 
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-        <!-- Revenue Trends -->
+        <!-- Revenue Trends - COMMENTED OUT FOR NOW -->
+        <!-- Can be re-enabled later if needed -->
+        <!--
         <div class="bg-white rounded-lg shadow-md p-4">
             <h2 class="text-lg font-semibold text-gray-700 mb-4">Revenue Trends (Last 30 Days)</h2>
+            <p class="text-sm text-gray-500 mb-2">Values shown in USD equivalent (LBP amounts converted at current rate)</p>
             <div class="chart-container">
                 <canvas id="revenueChart"></canvas>
+            </div>
+        </div>
+        -->
+        
+        <!-- Placeholder for disabled revenue chart -->
+        <div class="bg-gray-100 rounded-lg shadow-md p-4">
+            <h2 class="text-lg font-semibold text-gray-500 mb-4">Revenue Trends (Disabled)</h2>
+            <p class="text-sm text-gray-400 mb-2">This chart has been temporarily disabled</p>
+            <div class="text-center py-12 text-gray-400">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-16 w-16 mx-auto mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                </svg>
+                <p>Chart temporarily disabled</p>
             </div>
         </div>
 
@@ -83,6 +99,9 @@ const colors = [
     'rgba(255, 99, 132, 0.7)',
 ];
 
+// REVENUE CHART - COMMENTED OUT FOR NOW
+// Can be re-enabled later if needed
+/*
 // Revenue Chart
 const revenueCtx = document.getElementById('revenueChart').getContext('2d');
 const revenueChart = new Chart(revenueCtx, {
@@ -146,6 +165,7 @@ const revenueChart = new Chart(revenueCtx, {
         }
     }
 });
+*/
 
 // Hours Chart
 const hoursCtx = document.getElementById('hoursChart').getContext('2d');

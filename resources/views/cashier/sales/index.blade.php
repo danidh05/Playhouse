@@ -120,18 +120,7 @@
                                 {{ $item->addOn->name }} <span class="text-xs text-primary">(Add-on)</span>
                                 @endif
                                 <span class="text-xs text-gray-500">
-                                    @php
-                                    // For add-on items, subtotals are stored in USD, convert for LBP display
-                                    if($item->add_on_id && $sale->payment_method === 'LBP') {
-                                    $displaySubtotal = $item->subtotal * config('play.lbp_exchange_rate', 90000);
-                                    $formattedSubtotal = number_format($displaySubtotal) . ' L.L';
-                                    } elseif($sale->payment_method === 'LBP') {
-                                    $formattedSubtotal = number_format($item->subtotal) . ' L.L';
-                                    } else {
-                                    $formattedSubtotal = '$' . number_format($item->subtotal, 2);
-                                    }
-                                    @endphp
-                                    {{ $formattedSubtotal }}
+                                    {{ number_format($item->subtotal, 0) }} L.L
                                 </span>
                             </div>
                             @endforeach
@@ -146,19 +135,9 @@
                         </span>
                     </td>
                     <td class="px-4 py-2 whitespace-nowrap font-semibold">
+                        {{ number_format($displayTotal, 0) }} L.L
                         @if($hasCustomPrice)
-                        @if($sale->payment_method === 'LBP')
-                        {{ number_format($displayTotal) }} L.L
-                        @else
-                        ${{ number_format($displayTotal, 2) }}
-                        @endif
                         <div class="text-xs text-blue-600 font-normal">(Custom)</div>
-                        @else
-                        @if($sale->payment_method === 'LBP')
-                        {{ number_format($displayTotal) }} L.L
-                        @else
-                        ${{ number_format($displayTotal, 2) }}
-                        @endif
                         @endif
                     </td>
                     <td class="px-4 py-2 whitespace-nowrap">

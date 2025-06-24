@@ -46,6 +46,9 @@ class DashboardController extends Controller
         $startDate = Carbon::now()->subDays(30);
         $endDate = Carbon::now();
         
+        // REVENUE CHART DATA - COMMENTED OUT FOR NOW
+        // Can be re-enabled later if needed
+        /*
         // Daily revenue (play sessions + product sales)
         $dailyRevenue = [];
         $salesData = [];
@@ -58,28 +61,55 @@ class DashboardController extends Controller
             $date = $currentDate->format('Y-m-d');
             $labels[] = $currentDate->format('M d');
             
-            // Get sales revenue for this day (only from completed sales with amount_paid)
-            $salesRevenue = Sale::whereDate('created_at', $date)
+            // Calculate revenue by currency to avoid mixing LBP and USD
+            // Sales revenue (now all stored in LBP)
+            $salesRevenueLBP = Sale::whereDate('created_at', $date)
                                ->where('status', 'completed')
                                ->whereNotNull('amount_paid')
+                               ->where('currency', 'LBP')
                                ->sum('amount_paid');
-            $salesData[] = round($salesRevenue, 2);
             
-            // Get play sessions revenue for this day (using total_cost with fallback to amount_paid)
-            $sessionsRevenue = PlaySession::whereDate('ended_at', $date)
+            $salesRevenueUSD = Sale::whereDate('created_at', $date)
+                               ->where('status', 'completed')
+                               ->whereNotNull('amount_paid')
+                               ->where('currency', 'USD')
+                               ->sum('amount_paid');
+                               
+            // Sessions revenue by currency
+            $daySessionsLBP = PlaySession::whereDate('ended_at', $date)
                                 ->whereNotNull('ended_at')
+                                ->where('payment_method', 'LBP')
                                 ->get()
                                 ->sum(function($session) {
-                                    // Use total_cost if available, otherwise fall back to amount_paid for old records
                                     return $session->total_cost ?? $session->amount_paid ?? 0;
                                 });
-            $sessionsData[] = round($sessionsRevenue, 2);
+                                
+            $daySessionsUSD = PlaySession::whereDate('ended_at', $date)
+                                ->whereNotNull('ended_at')
+                                ->where('payment_method', 'USD')
+                                ->get()
+                                ->sum(function($session) {
+                                    return $session->total_cost ?? $session->amount_paid ?? 0;
+                                });
             
-            // Total revenue for the day
-            $dailyRevenue[] = round($salesRevenue + $sessionsRevenue, 2);
+            // Convert USD to LBP for meaningful totals
+            $lbpRate = config('play.lbp_exchange_rate', 90000);
+            $totalRevenueLBP = $salesRevenueLBP + $daySessionsLBP + (($salesRevenueUSD + $daySessionsUSD) * $lbpRate);
+            
+            // Store data for charts (convert to USD equivalent for chart display)
+            $salesData[] = round(($salesRevenueLBP + $daySessionsLBP) / $lbpRate + $salesRevenueUSD + $daySessionsUSD, 2);
+            $sessionsData[] = round($daySessionsLBP / $lbpRate + $daySessionsUSD, 2);
+            $dailyRevenue[] = round($totalRevenueLBP / $lbpRate, 2);
             
             $currentDate->addDay();
         }
+        */
+        
+        // Placeholder data for disabled revenue chart
+        $dailyRevenue = [];
+        $salesData = [];
+        $sessionsData = [];
+        $labels = [];
         
         // Monthly expenses by item for the last 6 months
         $lastSixMonths = [];
