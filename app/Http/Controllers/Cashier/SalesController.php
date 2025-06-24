@@ -335,8 +335,10 @@ class SalesController extends Controller
             }
         }
         
-        // Calculate USD equivalent for display
-        $todayRevenue = $usdRevenue + ($lbpRevenue / $lbpRate);
+        // Pass both currency amounts separately for proper display
+        $todayRevenueLBP = $lbpRevenue;
+        $todayRevenueUSD = $usdRevenue;
+        $todayRevenueUSDEquivalent = $usdRevenue + ($lbpRevenue / $lbpRate);
         
         $productsSoldCount = SaleItem::whereHas('sale', function($query) {
             $query->whereDate('created_at', today());
@@ -349,7 +351,9 @@ class SalesController extends Controller
             'sales', 
             'currentDate', 
             'todaySalesCount', 
-            'todayRevenue',
+            'todayRevenueLBP',
+            'todayRevenueUSD',
+            'todayRevenueUSDEquivalent',
             'productsSoldCount'
         ));
     }

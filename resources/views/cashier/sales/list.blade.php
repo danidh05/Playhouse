@@ -82,7 +82,18 @@
                 </div>
                 <div>
                     <p class="text-gray-500 text-sm">Today's Revenue</p>
-                    <p class="text-2xl font-bold">${{ number_format($todayRevenue, 2) }}</p>
+                    @if($todayRevenueLBP > 0 && $todayRevenueUSD > 0)
+                        <p class="text-lg font-bold">{{ number_format($todayRevenueLBP, 0) }} L.L</p>
+                        <p class="text-lg font-bold">${{ number_format($todayRevenueUSD, 2) }}</p>
+                        <p class="text-sm text-gray-500">(~${{ number_format($todayRevenueUSDEquivalent, 2) }} total)</p>
+                    @elseif($todayRevenueLBP > 0)
+                        <p class="text-2xl font-bold">{{ number_format($todayRevenueLBP, 0) }} L.L</p>
+                        <p class="text-sm text-gray-500">(~${{ number_format($todayRevenueUSDEquivalent, 2) }})</p>
+                    @elseif($todayRevenueUSD > 0)
+                        <p class="text-2xl font-bold">${{ number_format($todayRevenueUSD, 2) }}</p>
+                    @else
+                        <p class="text-2xl font-bold">$0.00</p>
+                    @endif
                 </div>
             </div>
         </div>
