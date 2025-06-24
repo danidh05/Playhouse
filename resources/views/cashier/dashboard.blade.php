@@ -167,17 +167,48 @@
                     </svg>
                 </div>
             </div>
-            <div class="flex items-end">
-                <span class="text-3xl font-bold text-gray-800">${{ number_format($todayRevenue, 2) }}</span>
-                <span
-                    class="ml-2 text-sm {{ $revenueGrowth >= 0 ? 'text-green-500' : 'text-red-500' }} flex items-center">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24"
-                        stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                            d="{{ $revenueGrowth >= 0 ? 'M5 15l7-7 7 7' : 'M19 9l-7 7-7-7' }}" />
-                    </svg>
-                    {{ number_format(abs($revenueGrowth), 1) }}%
-                </span>
+            <div class="space-y-2">
+                <!-- USD Revenue -->
+                @if($todayRevenue['usd_total'] > 0)
+                <div class="flex items-center justify-between">
+                    <span class="text-sm text-gray-600">USD:</span>
+                    <span class="text-xl font-bold text-gray-800">${{ number_format($todayRevenue['usd_total'], 2) }}</span>
+                </div>
+                @endif
+                
+                <!-- LBP Revenue -->
+                @if($todayRevenue['lbp_total'] > 0)
+                <div class="flex items-center justify-between">
+                    <span class="text-sm text-gray-600">LBP:</span>
+                    <span class="text-xl font-bold text-gray-800">{{ number_format($todayRevenue['lbp_total'], 0) }} L.L</span>
+                </div>
+                @endif
+                
+                <!-- Total USD Equivalent -->
+                <div class="border-t pt-2 mt-2">
+                    <div class="flex items-center justify-between">
+                        <span class="text-sm text-gray-500">Total (USD equiv.):</span>
+                        <div class="flex items-center">
+                            <span class="text-2xl font-bold text-gray-800">${{ number_format($todayRevenue['total_usd_equivalent'], 2) }}</span>
+                            <span class="ml-2 text-sm {{ $revenueGrowth >= 0 ? 'text-green-500' : 'text-red-500' }} flex items-center">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24"
+                                    stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                        d="{{ $revenueGrowth >= 0 ? 'M5 15l7-7 7 7' : 'M19 9l-7 7-7-7' }}" />
+                                </svg>
+                                {{ number_format(abs($revenueGrowth), 1) }}%
+                            </span>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Show message if no revenue -->
+                @if($todayRevenue['usd_total'] == 0 && $todayRevenue['lbp_total'] == 0)
+                <div class="text-center py-2">
+                    <span class="text-2xl font-bold text-gray-400">$0.00</span>
+                    <p class="text-sm text-gray-500">No revenue today</p>
+                </div>
+                @endif
             </div>
             <p class="text-gray-500 text-sm mt-2">Compared to yesterday</p>
         </div>

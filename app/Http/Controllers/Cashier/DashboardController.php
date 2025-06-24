@@ -24,11 +24,15 @@ class DashboardController extends Controller
         $today = Carbon::today();
         $yesterday = Carbon::yesterday();
 
-        // Calculate Today's Revenue
-        $todayRevenue = $this->calculateDailyRevenue($today);
-        $yesterdayRevenue = $this->calculateDailyRevenue($yesterday);
-        $revenueGrowth = $yesterdayRevenue > 0 
-            ? (($todayRevenue - $yesterdayRevenue) / $yesterdayRevenue) * 100 
+        // Calculate Today's Revenue (separated by currency)
+        $todayRevenue = $this->calculateDailyRevenueByCurrency($today);
+        $yesterdayRevenue = $this->calculateDailyRevenueByCurrency($yesterday);
+        
+        // Calculate growth for total USD equivalent
+        $todayTotalUSD = $todayRevenue['total_usd_equivalent'];
+        $yesterdayTotalUSD = $yesterdayRevenue['total_usd_equivalent'];
+        $revenueGrowth = $yesterdayTotalUSD > 0 
+            ? (($todayTotalUSD - $yesterdayTotalUSD) / $yesterdayTotalUSD) * 100 
             : 100;
 
         // Count Today's Play Sessions
@@ -238,25 +242,61 @@ class DashboardController extends Controller
     }
 
     /**
-     * Calculate daily revenue from sales and play sessions
+     * Calculate daily revenue separated by currency to avoid mixing LBP and USD
+     */
+    private function calculateDailyRevenueByCurrency($date)
+    {
+        $lbpRate = config('play.lbp_exchange_rate', 90000);
+        
+        // Initialize totals
+        $result = [
+            'lbp_total' => 0,
+            'usd_total' => 0,
+            'total_usd_equivalent' => 0
+        ];
+
+        // Calculate revenue from play sessions
+        $sessions = PlaySession::whereDate('ended_at', $date)
+            ->whereNotNull('ended_at')
+            ->get();
+
+        foreach ($sessions as $session) {
+            $amount = $session->total_cost ?? $session->amount_paid ?? 0;
+            
+            if ($session->payment_method === 'LBP') {
+                $result['lbp_total'] += $amount;
+            } else {
+                $result['usd_total'] += $amount;
+            }
+        }
+
+        // Calculate revenue from standalone product sales
+        $sales = Sale::whereDate('created_at', $date)
+            ->whereNull('play_session_id') // Only count standalone product sales
+            ->get();
+
+        foreach ($sales as $sale) {
+            if ($sale->payment_method === 'LBP') {
+                $result['lbp_total'] += $sale->total_amount;
+            } else {
+                $result['usd_total'] += $sale->total_amount;
+            }
+        }
+
+        // Calculate total USD equivalent for growth calculations
+        $result['total_usd_equivalent'] = $result['usd_total'] + ($result['lbp_total'] / $lbpRate);
+
+        return $result;
+    }
+
+    /**
+     * Calculate daily revenue from sales and play sessions (DEPRECATED - use calculateDailyRevenueByCurrency)
      */
     private function calculateDailyRevenue($date)
     {
-        // Calculate revenue from play sessions using total_cost (what customer should pay) with fallback
-        $sessionsRevenue = PlaySession::whereDate('ended_at', $date)
-            ->whereNotNull('ended_at')
-            ->get()
-            ->sum(function($session) {
-                // Use total_cost if available, otherwise fall back to amount_paid for old records
-                return $session->total_cost ?? $session->amount_paid ?? 0;
-            });
-
-        // Calculate revenue from product sales
-        $salesRevenue = Sale::whereDate('created_at', $date)
-            ->whereNull('play_session_id') // Only count standalone product sales
-            ->sum('total_amount');
-
-        return $sessionsRevenue + $salesRevenue;
+        // This method is deprecated but kept for backward compatibility
+        $revenue = $this->calculateDailyRevenueByCurrency($date);
+        return $revenue['total_usd_equivalent'];
     }
 
     /**

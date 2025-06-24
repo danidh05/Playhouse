@@ -152,15 +152,12 @@
                             $childSalesTotal = $sale->child_sales->sum('total_amount');
                         }
                         
-                        // Check if this sale uses the items total instead of stored total
-                        $itemsTotal = $sale->items->sum('subtotal');
+                        // CRITICAL: Always use the stored total amount (cashier's custom amount is final)
+                        // We NO LONGER override cashier custom amounts with calculated totals
+                        $displayTotal = $baseTotal + $childSalesTotal;
                         
-                        // Use items total if it differs significantly from stored total (indicates stored total is wrong)
-                        if (abs($baseTotal - $itemsTotal) > 1) {
-                            $displayTotal = $itemsTotal + $childSalesTotal;
-                        } else {
-                            $displayTotal = $baseTotal + $childSalesTotal;
-                        }
+                        // Calculate total for reference only (not used for override)
+                        $itemsTotal = $sale->items->sum('subtotal');
                         
                         // Check for custom pricing in play session notes
                         $hasCustomPrice = false;

@@ -83,20 +83,8 @@
                 $childSalesTotal = $sale->child_sales->sum('total_amount');
                 }
 
-                // Calculate items total accounting for add-on currency conversion
-                $itemsTotal = 0;
-                foreach ($sale->items as $item) {
-                if ($item->add_on_id && $sale->payment_method === 'LBP') {
-                // Add-on items are stored in USD, convert to LBP for calculation
-                $itemsTotal += $item->subtotal * config('play.lbp_exchange_rate', 90000);
-                } else {
-                // Regular products and USD add-ons use stored value
-                $itemsTotal += $item->subtotal;
-                }
-                }
-
-                // Use the stored total amount (which is the custom amount set by cashier)
-                // This preserves the exact amount the cashier specified
+                // CRITICAL: Always use the stored total amount (cashier's custom amount is final)
+                // We completely removed all calculation logic - no more overrides
                 $displayTotal = $baseTotal + $childSalesTotal;
 
                 // Check for custom pricing in play session notes

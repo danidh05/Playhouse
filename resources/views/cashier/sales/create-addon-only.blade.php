@@ -273,10 +273,10 @@ function setupEventListeners() {
         }
         
         // Check if any add-ons are selected with valid quantities
-        const hasAddOns = Array.from(document.querySelectorAll('.addon-qty')).some(input => parseFloat(input.value) >= 0.01);
+        const hasAddOns = Array.from(document.querySelectorAll('.addon-qty')).some(input => parseFloat(input.value) > 0);
         if (!hasAddOns) {
             e.preventDefault();
-            alert('Please select at least one add-on with a quantity of 0.01 or more.');
+            alert('Please select at least one add-on with a quantity greater than 0.');
             return false;
         }
         
@@ -376,7 +376,7 @@ function updateChangeDisplay() {
 function validateForm() {
     const childId = document.getElementById('child_id').value;
     const customTotal = parseFloat(document.getElementById('custom_total').value) || 0;
-    const hasAddOns = Array.from(document.querySelectorAll('.addon-qty')).some(input => parseFloat(input.value) >= 0.01);
+    const hasAddOns = Array.from(document.querySelectorAll('.addon-qty')).some(input => parseFloat(input.value) > 0);
     const submitBtn = document.getElementById('submit-btn');
 
     const isValid = childId && customTotal > 0 && hasAddOns;

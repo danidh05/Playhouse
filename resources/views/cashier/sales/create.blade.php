@@ -591,30 +591,37 @@ function processSale() {
         const paymentMethod = document.querySelector('input[name="payment_method"]:checked').value;
         console.log("Payment method:", paymentMethod);
 
-        // Calculate the correct total based on currency
-        let totalAmountUsd, totalAmountLbp;
-        if (currency === 'usd') {
-            totalAmountUsd = totalPrice;
-            totalAmountLbp = Math.round(totalPrice * LBP_RATE);
-        } else {
-            // currency is lbp
-            totalAmountLbp = totalPrice;
-            totalAmountUsd = totalPrice / LBP_RATE;
-        }
+        // Always calculate and store in LBP (convert USD to LBP if needed)
+        let totalAmountLBP = 0;
+        const orderItems = document.querySelectorAll('.order-item');
+        
+        orderItems.forEach(item => {
+            const qty = parseInt(item.querySelector('.item-qty').textContent);
+            if (paymentMethod === 'LBP') {
+                // Use LBP price directly
+                const priceLbp = parseFloat(item.querySelector('input[name*="[price_lbp]"]').value);
+                totalAmountLBP += qty * priceLbp;
+            } else {
+                // Convert USD price to LBP for storage
+                const priceUsd = parseFloat(item.querySelector('input[name*="[price_usd]"]').value);
+                totalAmountLBP += qty * (priceUsd * LBP_RATE);
+            }
+        });
 
-        console.log("Total amounts - USD:", totalAmountUsd, "LBP:", totalAmountLbp);
+        console.log("Total amount in LBP:", totalAmountLBP);
 
-        // Get the amount paid based on payment method
-        let amountPaid;
+        // Get amount paid and convert to LBP for storage
+        let amountPaidLBP;
         if (paymentMethod === 'LBP') {
             const cashInputLbp = document.getElementById('cash-input-lbp');
-            amountPaid = parseFloat(cashInputLbp.value.replace(/,/g, '')) || 0;
+            amountPaidLBP = parseFloat(cashInputLbp.value.replace(/,/g, '')) || 0;
         } else {
             const cashInputUsd = document.getElementById('cash-input-usd');
-            amountPaid = parseFloat(cashInputUsd.value) || 0;
+            const amountPaidUSD = parseFloat(cashInputUsd.value) || 0;
+            amountPaidLBP = amountPaidUSD * LBP_RATE; // Convert to LBP
         }
 
-        console.log("Amount paid:", amountPaid);
+        console.log("Amount paid in LBP:", amountPaidLBP);
 
         // Disable the pay button and show loading state
         const payButton = document.getElementById('pay-button');
@@ -646,11 +653,11 @@ function processSale() {
         // No longer needed as we're appending items individually
         // formData.append('items', JSON.stringify(formItems));
 
-        formData.append('total_amount', totalAmountUsd);
-        formData.append('total_amount_lbp', totalAmountLbp);
-        formData.append('payment_method', paymentMethod);
-        formData.append('amount_paid', amountPaid);
-        formData.append('currency', currency);
+        // Always use the amount customer paid as the cost (both in LBP)
+        formData.append('total_amount', amountPaidLBP);  // Use what customer paid as the cost
+        formData.append('payment_method', 'LBP');  // Always store as LBP
+        formData.append('original_payment_method', paymentMethod);  // Track original payment method
+        formData.append('amount_paid', amountPaidLBP);
 
         // Add shift_id if available
         const shiftIdInput = document.querySelector('input[name="shift_id"]');

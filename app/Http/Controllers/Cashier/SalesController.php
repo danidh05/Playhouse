@@ -108,21 +108,20 @@ class SalesController extends Controller
             'items.*.price' => 'required|numeric|min:0',
             'payment_method' => ['required', Rule::in(config('play.payment_methods', []))],
             'shift_id' => 'required|exists:shifts,id',
+            'total_amount' => 'required|numeric|min:0',
             'amount_paid' => 'required|numeric|min:0',
-            'currency' => 'required|in:usd,lbp',
+
         ]);
 
         $items = $request->items;
-        $totalAmount = 0;
-        $currency = $request->currency;
-        $paymentMethod = $request->payment_method;
-        $lbpRate = config('play.lbp_exchange_rate', 90000);
+        $paymentMethod = $request->payment_method; // Always 'LBP' now
+        $originalPaymentMethod = $request->original_payment_method ?? $paymentMethod; // USD or LBP
         
         // Start database transaction
         DB::beginTransaction();
         
         try {
-            // Process items and calculate total
+            // Process items and validate stock (but DON'T recalculate totals)
             foreach ($items as $id => $item) {
                 $product = Product::findOrFail($id);
                 
@@ -140,19 +139,15 @@ class SalesController extends Controller
                     return redirect()->back()->with('error', "Not enough stock for {$product->name}");
                 }
                 
-                // Keep item price in original currency (no conversion for storage)
-                $itemPrice = $item['price'];
-                $itemTotal = $itemPrice * $item['qty'];
-                $totalAmount += $itemTotal;
-                
                 // Reduce stock
                 $product->decrement('stock_qty', $item['qty']);
             }
             
-            // Keep amount_paid in original currency (no conversion for storage)
+            // Use the amounts directly from frontend (already in correct currency)
             $amountPaid = $request->amount_paid;
+            $totalAmount = $request->total_amount;
             
-            // Create the sale record in original currency (no conversion)
+            // Create the sale record with correct cost and payment amounts
             $sale = new Sale([
                 'user_id' => Auth::id(),
                 'shift_id' => $request->shift_id,
@@ -160,7 +155,7 @@ class SalesController extends Controller
                 'amount_paid' => $amountPaid,
                 'total_amount' => $totalAmount,
                 'status' => 'completed',
-                'currency' => $paymentMethod === 'LBP' ? 'LBP' : 'USD',
+                'currency' => 'LBP',
             ]);
             
             if ($request->has('child_id') && !empty($request->child_id)) {
@@ -169,16 +164,25 @@ class SalesController extends Controller
             
             $sale->save();
             
-            // Create sale items in original currency (no conversion)
+            // Create sale items in LBP (convert USD prices if needed)
             foreach ($items as $id => $item) {
-                $itemPrice = $item['price'];
+                $product = Product::find($id);
+                
+                // Always store in LBP
+                if ($originalPaymentMethod === 'LBP') {
+                    $itemPriceLBP = $product->price_lbp;
+                } else {
+                    // Convert USD to LBP
+                    $lbpRate = config('play.lbp_exchange_rate', 90000);
+                    $itemPriceLBP = $product->price * $lbpRate;
+                }
                 
                 SaleItem::create([
                     'sale_id' => $sale->id,
                     'product_id' => $id,
                     'quantity' => $item['qty'],
-                    'unit_price' => $itemPrice,
-                    'subtotal' => $itemPrice * $item['qty'],
+                    'unit_price' => $itemPriceLBP,
+                    'subtotal' => $itemPriceLBP * $item['qty'],
                 ]);
             }
             
@@ -310,17 +314,29 @@ class SalesController extends Controller
         // Get statistical data
         $todaySalesCount = Sale::whereDate('created_at', today())->count();
         
-        // Calculate today's revenue including child sales
+        // Calculate today's revenue by currency (don't mix LBP and USD)
         $todaySales = Sale::with('child_sales')
             ->whereDate('created_at', today())
             ->get();
         
-        $todayRevenue = 0;
+        $lbpRate = config('play.lbp_exchange_rate', 90000);
+        $lbpRevenue = 0;
+        $usdRevenue = 0;
+        
         foreach ($todaySales as $sale) {
             $baseAmount = $sale->total_amount;
             $childSalesAmount = $sale->child_sales->sum('total_amount');
-            $todayRevenue += ($baseAmount + $childSalesAmount);
+            $totalAmount = $baseAmount + $childSalesAmount;
+            
+            if ($sale->payment_method === 'LBP') {
+                $lbpRevenue += $totalAmount;
+            } else {
+                $usdRevenue += $totalAmount;
+            }
         }
+        
+        // Calculate USD equivalent for display
+        $todayRevenue = $usdRevenue + ($lbpRevenue / $lbpRate);
         
         $productsSoldCount = SaleItem::whereHas('sale', function($query) {
             $query->whereDate('created_at', today());
@@ -447,8 +463,23 @@ class SalesController extends Controller
             'custom_total' => 'required|numeric|min:0.01',
             'amount_paid' => 'required|numeric|min:0',
             'add_ons' => 'required|array|min:1',
-            'add_ons.*.qty' => 'numeric|min:0.01'
+            'add_ons.*.qty' => 'nullable|numeric|min:0'
         ]);
+        
+        // Custom validation: ensure at least one add-on has quantity > 0
+        $hasValidAddOns = false;
+        foreach ($request->add_ons as $addOnId => $data) {
+            if (isset($data['qty']) && (float)$data['qty'] > 0) {
+                $hasValidAddOns = true;
+                break;
+            }
+        }
+        
+        if (!$hasValidAddOns) {
+            return redirect()->back()
+                ->with('error', 'Please select at least one add-on with a quantity greater than 0.')
+                ->withInput();
+        }
 
                 // Find active shift
                 $shift = Shift::where('cashier_id', Auth::id())

@@ -141,16 +141,50 @@ class ShiftController extends Controller
         $playSessionSales = $allSales->whereNotNull('play_session_id');
         $productSales = $allSales->whereNull('play_session_id');
         
-        // 4. Calculate totals without double-counting using TOTAL COST for sessions (with fallback)
-        $sessionsTotal = $playSessionSales->filter(function($sale) {
-            return $sale->play_session;
-        })->sum(function($sale) {
-            // Use total_cost if available, otherwise fall back to amount_paid for old records
-            return $sale->play_session->total_cost ?? $sale->play_session->amount_paid ?? 0;
-        });
+        // 4. Calculate totals by currency (don't mix LBP and USD)
+        $lbpRate = config('play.lbp_exchange_rate', 90000);
         
-        $salesTotal = $productSales->whereNotNull('total_amount')->sum('total_amount');
+        // Initialize currency totals
+        $sessionsLBP = 0;
+        $sessionsUSD = 0;
+        $salesLBP = 0;
+        $salesUSD = 0;
+        
+        // Calculate play session revenue by currency
+        foreach ($playSessionSales as $sale) {
+            if ($sale->play_session) {
+                $amount = $sale->play_session->total_cost ?? $sale->play_session->amount_paid ?? 0;
+                if ($sale->payment_method === 'LBP') {
+                    $sessionsLBP += $amount;
+                } else {
+                    $sessionsUSD += $amount;
+                }
+            }
+        }
+        
+        // Calculate product sales revenue by currency
+        foreach ($productSales as $sale) {
+            if ($sale->payment_method === 'LBP') {
+                $salesLBP += $sale->total_amount ?? 0;
+            } else {
+                $salesUSD += $sale->total_amount ?? 0;
+            }
+        }
+        
+        // Calculate totals for display
+        $sessionsTotal = $sessionsUSD + ($sessionsLBP / $lbpRate); // USD equivalent for sessions
+        $salesTotal = $salesUSD + ($salesLBP / $lbpRate); // USD equivalent for sales
         $totalRevenue = $sessionsTotal + $salesTotal;
+        
+        // Store separate currency amounts for detailed breakdown
+        $currencyBreakdown = [
+            'sessions_lbp' => $sessionsLBP,
+            'sessions_usd' => $sessionsUSD,
+            'sales_lbp' => $salesLBP,
+            'sales_usd' => $salesUSD,
+            'total_lbp' => $sessionsLBP + $salesLBP,
+            'total_usd' => $sessionsUSD + $salesUSD
+        ];
         
         // Payment method breakdown using TOTAL COST for sessions (with fallback)
         $paymentMethods = config('play.payment_methods', ['Cash', 'Card', 'Transfer', 'LBP']);
@@ -183,7 +217,8 @@ class ShiftController extends Controller
             'totalRevenue',
             'paymentBreakdown',
             'playSessionSales',
-            'productSales'
+            'productSales',
+            'currencyBreakdown'
         ));
     }
     
@@ -238,16 +273,50 @@ class ShiftController extends Controller
         $playSessionSales = $allSales->whereNotNull('play_session_id');
         $productSales = $allSales->whereNull('play_session_id');
         
-        // Calculate totals without double-counting using TOTAL COST for sessions (with fallback)
-        $sessionsTotal = $playSessionSales->filter(function($sale) {
-            return $sale->play_session;
-        })->sum(function($sale) {
-            // Use total_cost if available, otherwise fall back to amount_paid for old records
-            return $sale->play_session->total_cost ?? $sale->play_session->amount_paid ?? 0;
-        });
+        // Calculate totals by currency (don't mix LBP and USD)
+        $lbpRate = config('play.lbp_exchange_rate', 90000);
         
-        $salesTotal = $productSales->whereNotNull('total_amount')->sum('total_amount');
+        // Initialize currency totals
+        $sessionsLBP = 0;
+        $sessionsUSD = 0;
+        $salesLBP = 0;
+        $salesUSD = 0;
+        
+        // Calculate play session revenue by currency
+        foreach ($playSessionSales as $sale) {
+            if ($sale->play_session) {
+                $amount = $sale->play_session->total_cost ?? $sale->play_session->amount_paid ?? 0;
+                if ($sale->payment_method === 'LBP') {
+                    $sessionsLBP += $amount;
+                } else {
+                    $sessionsUSD += $amount;
+                }
+            }
+        }
+        
+        // Calculate product sales revenue by currency
+        foreach ($productSales as $sale) {
+            if ($sale->payment_method === 'LBP') {
+                $salesLBP += $sale->total_amount ?? 0;
+            } else {
+                $salesUSD += $sale->total_amount ?? 0;
+            }
+        }
+        
+        // Calculate totals for display
+        $sessionsTotal = $sessionsUSD + ($sessionsLBP / $lbpRate); // USD equivalent for sessions
+        $salesTotal = $salesUSD + ($salesLBP / $lbpRate); // USD equivalent for sales
         $totalRevenue = $sessionsTotal + $salesTotal;
+        
+        // Store separate currency amounts for detailed breakdown
+        $currencyBreakdown = [
+            'sessions_lbp' => $sessionsLBP,
+            'sessions_usd' => $sessionsUSD,
+            'sales_lbp' => $salesLBP,
+            'sales_usd' => $salesUSD,
+            'total_lbp' => $sessionsLBP + $salesLBP,
+            'total_usd' => $sessionsUSD + $salesUSD
+        ];
         
         return view('cashier.shifts.report', compact(
             'shift', 
@@ -256,7 +325,8 @@ class ShiftController extends Controller
             'productSales',
             'sessionsTotal',
             'salesTotal',
-            'totalRevenue'
+            'totalRevenue',
+            'currencyBreakdown'
         ));
     }
 } 

@@ -34,14 +34,21 @@
         <div class="bg-gray-50 p-4 rounded-lg">
             <h2 class="text-lg font-semibold mb-3">Financial Summary</h2>
             <div class="space-y-2">
-                <p><span class="font-medium">Total Revenue:</span> ${{ number_format($totalRevenue, 2) }}</p>
-                <p class="pl-4"><span class="font-medium">Play Sessions ({{ $playSessionSales->count() }}):</span>
-                    ${{ number_format($sessionsTotal, 2) }}</p>
-                <p class="pl-4"><span class="font-medium">Product Sales ({{ $productSales->count() }}):</span>
-                    ${{ number_format($salesTotal, 2) }}</p>
+                @if($currencyBreakdown['total_lbp'] > 0)
+                <p><span class="font-medium">LBP Revenue:</span> {{ number_format($currencyBreakdown['total_lbp'], 0) }} L.L</p>
+                @endif
+                @if($currencyBreakdown['total_usd'] > 0)
+                <p><span class="font-medium">USD Revenue:</span> ${{ number_format($currencyBreakdown['total_usd'], 2) }}</p>
+                @endif
+                <p class="text-gray-600"><span class="font-medium">USD Equivalent:</span> ${{ number_format($totalRevenue, 2) }}</p>
+                
+                <div class="mt-3 pt-2 border-t border-gray-200">
+                    <p class="text-sm"><span class="font-medium">Play Sessions:</span> {{ $playSessionSales->count() }} transactions</p>
+                    <p class="text-sm"><span class="font-medium">Product Sales:</span> {{ $productSales->count() }} transactions</p>
+                </div>
             </div>
             <div class="mt-3 text-xs text-gray-600">
-                <p>* Play Sessions and Product Sales are counted separately to avoid double-counting revenue.</p>
+                <p>* Revenue displayed by currency to avoid mixing LBP and USD amounts.</p>
             </div>
         </div>
     </div>
@@ -112,8 +119,16 @@
                 </tbody>
                 <tfoot class="bg-gray-50">
                     <tr>
-                        <td colspan="4" class="px-4 py-2 text-right font-medium">Total:</td>
-                        <td class="px-4 py-2 font-medium">${{ number_format($sessionsTotal, 2) }}</td>
+                        <td colspan="4" class="px-4 py-2 text-right font-medium">Play Sessions Total:</td>
+                        <td class="px-4 py-2 font-medium">
+                            @if($currencyBreakdown['sessions_lbp'] > 0 && $currencyBreakdown['sessions_usd'] > 0)
+                                {{ number_format($currencyBreakdown['sessions_lbp']) }} L.L + ${{ number_format($currencyBreakdown['sessions_usd'], 2) }}
+                            @elseif($currencyBreakdown['sessions_lbp'] > 0)
+                                {{ number_format($currencyBreakdown['sessions_lbp']) }} L.L
+                            @else
+                                ${{ number_format($currencyBreakdown['sessions_usd'], 2) }}
+                            @endif
+                        </td>
                         <td></td>
                     </tr>
                 </tfoot>
@@ -183,8 +198,16 @@
                 </tbody>
                 <tfoot class="bg-gray-50">
                     <tr>
-                        <td colspan="3" class="px-4 py-2 text-right font-medium">Total:</td>
-                        <td class="px-4 py-2 font-medium">${{ number_format($salesTotal, 2) }}</td>
+                        <td colspan="3" class="px-4 py-2 text-right font-medium">Product Sales Total:</td>
+                        <td class="px-4 py-2 font-medium">
+                            @if($currencyBreakdown['sales_lbp'] > 0 && $currencyBreakdown['sales_usd'] > 0)
+                                {{ number_format($currencyBreakdown['sales_lbp']) }} L.L + ${{ number_format($currencyBreakdown['sales_usd'], 2) }}
+                            @elseif($currencyBreakdown['sales_lbp'] > 0)
+                                {{ number_format($currencyBreakdown['sales_lbp']) }} L.L
+                            @else
+                                ${{ number_format($currencyBreakdown['sales_usd'], 2) }}
+                            @endif
+                        </td>
                         <td colspan="2"></td>
                     </tr>
                 </tfoot>

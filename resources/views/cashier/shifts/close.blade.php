@@ -78,21 +78,39 @@
                 
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
-                        <h3 class="text-sm font-medium text-green-700 mb-2">Transactions</h3>
+                        <h3 class="text-sm font-medium text-green-700 mb-2">Revenue by Currency</h3>
                         <ul class="space-y-1 text-sm">
+                            @if($currencyBreakdown['total_lbp'] > 0)
                             <li class="flex justify-between">
-                                <span>Play Sessions ({{ $playSessionSales->count() }}):</span>
-                                <span class="font-medium">${{ number_format($sessionsTotal, 2) }}</span>
+                                <span>LBP Revenue:</span>
+                                <span class="font-medium">{{ number_format($currencyBreakdown['total_lbp'], 0) }} L.L</span>
                             </li>
+                            @endif
+                            @if($currencyBreakdown['total_usd'] > 0)
                             <li class="flex justify-between">
-                                <span>Product Sales ({{ $productSales->count() }}):</span>
-                                <span class="font-medium">${{ number_format($salesTotal, 2) }}</span>
+                                <span>USD Revenue:</span>
+                                <span class="font-medium">${{ number_format($currencyBreakdown['total_usd'], 2) }}</span>
                             </li>
-                            <li class="flex justify-between border-t border-green-200 pt-1 mt-1 font-medium">
-                                <span>Total Revenue:</span>
+                            @endif
+                            <li class="flex justify-between border-t border-green-200 pt-1 mt-1 font-medium text-gray-600">
+                                <span>USD Equivalent:</span>
                                 <span>${{ number_format($totalRevenue, 2) }}</span>
                             </li>
                         </ul>
+                        
+                        <div class="mt-3 pt-2 border-t border-green-200">
+                            <h4 class="text-xs font-medium text-green-700 mb-1">Transaction Count</h4>
+                            <ul class="space-y-1 text-xs text-gray-600">
+                                <li class="flex justify-between">
+                                    <span>Play Sessions:</span>
+                                    <span>{{ $playSessionSales->count() }}</span>
+                                </li>
+                                <li class="flex justify-between">
+                                    <span>Product Sales:</span>
+                                    <span>{{ $productSales->count() }}</span>
+                                </li>
+                            </ul>
+                        </div>
                     </div>
                     
                     <div>
@@ -121,7 +139,7 @@
                 @endif
                 
                 <div class="mt-4 text-xs text-gray-600">
-                    <p>* Play Sessions and Product Sales are counted separately to avoid double-counting revenue.</p>
+                    <p>* Revenue is displayed by currency to avoid mixing LBP and USD amounts. USD equivalent shown for comparison.</p>
                 </div>
             </div>
 
