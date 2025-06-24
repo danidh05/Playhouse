@@ -25,7 +25,7 @@
             </svg>
             Print Receipt
         </button>
-        
+
         <button onclick="showDeleteConfirmation()"
             class="ml-2 px-3 py-1 text-xs bg-red-600 text-white rounded flex items-center">
             <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24"
@@ -93,151 +93,197 @@
                         @php
                         // All sales are now stored in LBP, so always display as LBP
                         $displayTotal = $sale->total_amount;
-                        
+
                         // Add child sales totals if they exist
                         if ($sale->child_sales && $sale->child_sales->count() > 0) {
-                            $displayTotal += $sale->child_sales->sum('total_amount');
+                        $displayTotal += $sale->child_sales->sum('total_amount');
                         }
-                        
+
                         // Check for custom pricing from session notes
                         $hasCustomPrice = false;
                         if ($sale->play_session && $sale->play_session->notes && strpos($sale->play_session->notes,
                         'Manual price set by cashier') !== false) {
-                            $hasCustomPrice = true;
+                        $hasCustomPrice = true;
                         }
                         @endphp
 
-                            @if($sale->play_session)
-                            <!-- Display all sale items (including session time, add-ons, and products) -->
-                            @foreach($sale->items as $item)
-                            <tr>
-                                <td class="px-4 py-3 whitespace-nowrap">
-                                    <div class="text-sm font-medium text-gray-900">
-                                        @if($item->product_id)
-                                            {{ $item->product->name }}
-                                        @elseif($item->description)
-                                            {{ $item->description }}
-                                        @else
-                                            Item
-                                        @endif
-                                    </div>
-                                    @if($item->description && strpos($item->description, 'Play session') !== false)
-                                        <div class="text-xs text-gray-500">
-                                            @if($sale->play_session->discount_pct > 0)
-                                            ({{ $sale->play_session->discount_pct }}% discount applied)
-                                            @endif
-                                        </div>
-                                    @elseif($item->description && strpos($item->description, 'add-on') !== false)
-                                        <div class="text-xs text-gray-500">Add-on</div>
-                                    @elseif($item->product_id)
-                                        <div class="text-xs text-gray-500">Product</div>
-                                    @endif
-                                </td>
-                                <td class="px-4 py-3 whitespace-nowrap text-right text-sm">
+                        @if($sale->play_session)
+                        <!-- Display all sale items (including session time, add-ons, and products) -->
+                        @foreach($sale->items as $item)
+                        <tr>
+                            <td class="px-4 py-3 whitespace-nowrap">
+                                <div class="text-sm font-medium text-gray-900">
                                     @if($item->product_id)
-                                        @php
-                                            $product = $item->product;
-                                        @endphp
-                                        @if($product->price_lbp > 0)
-                                            {{ number_format($product->price_lbp, 0) }} L.L
-                                        @else
-                                            ${{ number_format($product->price, 2) }} <span class="text-xs text-gray-500">(USD)</span>
-                                        @endif
-                                    @elseif(strpos($item->description, 'Play session') !== false)
-                                        @if($hasCustomPrice)
-                                        <span class="text-blue-600 font-medium">Flat Rate</span>
-                                        @else
-                                        {{ number_format(config('play.hourly_rate', 10.00) * config('play.lbp_exchange_rate', 90000), 0) }} L.L/hr
-                                        @endif
+                                    {{ $item->product->name }}
+                                    @elseif($item->description)
+                                    {{ $item->description }}
                                     @else
-                                        {{ number_format($item->unit_price, 0) }} L.L
+                                    Item
                                     @endif
-                                </td>
-                                <td class="px-4 py-3 whitespace-nowrap text-right text-sm">
-                                    {{ $item->quantity }}
-                                </td>
-                                <td class="px-4 py-3 whitespace-nowrap text-right text-sm font-medium">
-                                    {{ number_format($item->subtotal, 0) }} L.L
-                                </td>
-                            </tr>
-                            @endforeach
-
-                            <!-- Include child sales' products as part of the main sale -->
-                            @if($sale->child_sales && $sale->child_sales->count() > 0)
-                                @foreach($sale->child_sales as $childSale)
-                                    @foreach($childSale->items as $item)
-                                    <tr>
-                                        <td class="px-4 py-3 whitespace-nowrap">
-                                            <div class="text-sm font-medium text-gray-900">{{ $item->product->name }}</div>
-                                            <div class="text-xs text-gray-500">Product (from session)</div>
-                                        </td>
-                                        <td class="px-4 py-3 whitespace-nowrap text-right text-sm">
-                                            @php
-                                                $product = $item->product;
-                                            @endphp
-                                            @if($product->price_lbp > 0)
-                                                {{ number_format($product->price_lbp, 0) }} L.L
-                                            @else
-                                                ${{ number_format($product->price, 2) }} <span class="text-xs text-gray-500">(USD)</span>
-                                            @endif
-                                        </td>
-                                        <td class="px-4 py-3 whitespace-nowrap text-right text-sm">
-                                            {{ $item->quantity }}
-                                        </td>
-                                        <td class="px-4 py-3 whitespace-nowrap text-right text-sm font-medium">
-                                            {{ number_format($item->subtotal, 0) }} L.L
-                                        </td>
-                                    </tr>
-                                    @endforeach
-                                @endforeach
-                            @endif
-                            @else
-                            <!-- Display regular product items -->
-                            @foreach($sale->items as $item)
-                            <tr class="border-b">
-                                <td class="px-4 py-3">
-                                    @if($item->product_id)
-                                        {{ $item->product->name }}
-                                    @elseif($item->add_on_id)
-                                        {{ $item->addOn->name }} <span class="text-xs text-primary font-medium">(Add-on)</span>
+                                </div>
+                                @if($item->description && strpos($item->description, 'Play session') !== false)
+                                <div class="text-xs text-gray-500">
+                                    @if($sale->play_session->discount_pct > 0)
+                                    ({{ $sale->play_session->discount_pct }}% discount applied)
                                     @endif
-                                </td>
-                                <td class="px-4 py-3 text-center">{{ $item->quantity }}</td>
-                                <td class="px-4 py-3 text-right">
-                                @if($item->product_id)
-                                    @php
-                                        $product = $item->product;
-                                    @endphp
-                                    @if($product->price_lbp > 0)
-                                        {{ number_format($product->price_lbp, 0) }} L.L
-                                    @else
-                                        ${{ number_format($product->price, 2) }} <span class="text-xs text-gray-500">(USD)</span>
-                                    @endif
-                                @elseif($item->add_on_id)
-                                    @php
-                                        $addOn = $item->addOn;
-                                    @endphp
-                                    @if($addOn->price_lbp > 0)
-                                        {{ number_format($addOn->price_lbp, 0) }} L.L
-                                    @else
-                                        ${{ number_format($addOn->price, 2) }} <span class="text-xs text-gray-500">(USD)</span>
-                                    @endif
-                                @else
-                                    {{ number_format($item->unit_price, 0) }} L.L
+                                </div>
+                                @elseif($item->description && strpos($item->description, 'add-on') !== false)
+                                <div class="text-xs text-gray-500">Add-on</div>
+                                @elseif($item->product_id)
+                                <div class="text-xs text-gray-500">Product</div>
                                 @endif
-                                </td>
-                                <td class="px-4 py-3 text-right">
+                            </td>
+                            <td class="px-4 py-3 whitespace-nowrap text-right text-sm">
+                                @if($item->product_id)
+                                @php
+                                $product = $item->product;
+                                @endphp
+                                @if($product->price_lbp > 0)
+                                {{ number_format($product->price_lbp, 0) }} L.L
+                                @else
+                                ${{ number_format($product->price, 2) }} <span
+                                    class="text-xs text-gray-500">(USD)</span>
+                                @endif
+                                @elseif(strpos($item->description, 'Play session') !== false)
+                                @if($hasCustomPrice)
+                                <span class="text-blue-600 font-medium">Flat Rate</span>
+                                @else
+                                {{ number_format(config('play.hourly_rate', 10.00) * config('play.lbp_exchange_rate', 90000), 0) }}
+                                L.L/hr
+                                @endif
+                                @else
+                                {{ number_format($item->unit_price, 0) }} L.L
+                                @endif
+                            </td>
+                            <td class="px-4 py-3 whitespace-nowrap text-right text-sm">
+                                {{ $item->quantity }}
+                            </td>
+                            <td class="px-4 py-3 whitespace-nowrap text-right text-sm font-medium">
+                                @if($sale->payment_method === 'LBP')
                                 {{ number_format($item->subtotal, 0) }} L.L
-                                </td>
-                            </tr>
-                            @endforeach
-                            @endif
+                                @else
+                                @php
+                                // Convert back to USD for display if original payment was USD
+                                $lbpRate = config('play.lbp_exchange_rate', 90000);
+                                $usdSubtotal = $item->subtotal / $lbpRate;
+                                @endphp
+                                ${{ number_format($usdSubtotal, 2) }}
+                                @endif
+                            </td>
+                        </tr>
+                        @endforeach
+
+                        <!-- Include child sales' products as part of the main sale -->
+                        @if($sale->child_sales && $sale->child_sales->count() > 0)
+                        @foreach($sale->child_sales as $childSale)
+                        @foreach($childSale->items as $item)
+                        <tr>
+                            <td class="px-4 py-3 whitespace-nowrap">
+                                <div class="text-sm font-medium text-gray-900">{{ $item->product->name }}</div>
+                                <div class="text-xs text-gray-500">Product (from session)</div>
+                            </td>
+                            <td class="px-4 py-3 whitespace-nowrap text-right text-sm">
+                                @php
+                                $product = $item->product;
+                                @endphp
+                                @if($product->price_lbp > 0)
+                                {{ number_format($product->price_lbp, 0) }} L.L
+                                @else
+                                ${{ number_format($product->price, 2) }} <span
+                                    class="text-xs text-gray-500">(USD)</span>
+                                @endif
+                            </td>
+                            <td class="px-4 py-3 whitespace-nowrap text-right text-sm">
+                                {{ $item->quantity }}
+                            </td>
+                            <td class="px-4 py-3 whitespace-nowrap text-right text-sm font-medium">
+                                @if($sale->payment_method === 'LBP')
+                                {{ number_format($item->subtotal, 0) }} L.L
+                                @else
+                                @php
+                                // Convert back to USD for display if original payment was USD
+                                $lbpRate = config('play.lbp_exchange_rate', 90000);
+                                $usdSubtotal = $item->subtotal / $lbpRate;
+                                @endphp
+                                ${{ number_format($usdSubtotal, 2) }}
+                                @endif
+                            </td>
+                        </tr>
+                        @endforeach
+                        @endforeach
+                        @endif
+                        @else
+                        <!-- Display regular product items -->
+                        @foreach($sale->items as $item)
+                        <tr class="border-b">
+                            <td class="px-4 py-3">
+                                @if($item->product_id)
+                                {{ $item->product->name }}
+                                @elseif($item->add_on_id)
+                                {{ $item->addOn->name }} <span class="text-xs text-primary font-medium">(Add-on)</span>
+                                @endif
+                            </td>
+                            <td class="px-4 py-3 text-center">{{ $item->quantity }}</td>
+                            <td class="px-4 py-3 text-right">
+                                @if($item->product_id)
+                                @php
+                                $product = $item->product;
+                                @endphp
+                                @if($product->price_lbp > 0)
+                                {{ number_format($product->price_lbp, 0) }} L.L
+                                @else
+                                ${{ number_format($product->price, 2) }} <span
+                                    class="text-xs text-gray-500">(USD)</span>
+                                @endif
+                                @elseif($item->add_on_id)
+                                @php
+                                $addOn = $item->addOn;
+                                @endphp
+                                @if($addOn->price_lbp > 0)
+                                {{ number_format($addOn->price_lbp, 0) }} L.L
+                                @else
+                                ${{ number_format($addOn->price, 2) }} <span class="text-xs text-gray-500">(USD)</span>
+                                @endif
+                                @else
+                                {{ number_format($item->unit_price, 0) }} L.L
+                                @endif
+                            </td>
+                            <td class="px-4 py-3 text-right">
+                                @if($sale->payment_method === 'LBP')
+                                {{ number_format($item->subtotal, 0) }} L.L
+                                @else
+                                @php
+                                // Convert back to USD for display if original payment was USD
+                                $lbpRate = config('play.lbp_exchange_rate', 90000);
+                                $usdSubtotal = $item->subtotal / $lbpRate;
+                                @endphp
+                                ${{ number_format($usdSubtotal, 2) }}
+                                @endif
+                            </td>
+                        </tr>
+                        @endforeach
+                        @endif
                     </tbody>
                     <tfoot>
                         <tr>
                             <td colspan="3" class="px-4 py-3 text-sm font-medium text-gray-900 text-right">Total:</td>
                             <td class="px-4 py-3 whitespace-nowrap text-base font-bold text-gray-900 text-right">
+                                @if($sale->currency === 'LBP' || $sale->payment_method === 'LBP')
                                 {{ number_format($displayTotal, 0) }} L.L
+                                @else
+                                @php
+                                // Check if this is stored as LBP (new format) or USD (old format)
+                                if ($sale->currency === 'USD') {
+                                // Old format: stored in USD, display as-is
+                                $usdTotal = $displayTotal;
+                                } else {
+                                // New format: stored as LBP equivalent, convert back to USD
+                                $lbpRate = config('play.lbp_exchange_rate', 90000);
+                                $usdTotal = $displayTotal / $lbpRate;
+                                }
+                                @endphp
+                                ${{ number_format($usdTotal, 2) }}
+                                @endif
                                 @if($hasCustomPrice)
                                 <div class="text-xs text-blue-600">(Custom price set by cashier)</div>
                                 @endif
@@ -277,20 +323,42 @@
                 <div>
                     <p class="text-sm text-gray-500">Total Cost:</p>
                     <p class="font-medium">
-                        @if($sale->payment_method === 'LBP')
+                        @if($sale->currency === 'LBP' || $sale->payment_method === 'LBP')
                         {{ number_format($displayTotal) }} L.L
                         @else
-                        ${{ number_format($displayTotal, 2) }}
+                        @php
+                        // Check if this is stored as LBP (new format) or USD (old format)
+                        if ($sale->currency === 'USD') {
+                        // Old format: stored in USD, display as-is
+                        $usdAmount = $displayTotal;
+                        } else {
+                        // New format: stored as LBP equivalent, convert back to USD
+                        $lbpRate = config('play.lbp_exchange_rate', 90000);
+                        $usdAmount = $displayTotal / $lbpRate;
+                        }
+                        @endphp
+                        ${{ number_format($usdAmount, 2) }}
                         @endif
                     </p>
                 </div>
                 <div>
                     <p class="text-sm text-gray-500">Amount Paid:</p>
                     <p class="font-medium">
-                        @if($sale->payment_method === 'LBP')
+                        @if($sale->currency === 'LBP' || $sale->payment_method === 'LBP')
                         {{ number_format($sale->amount_paid) }} L.L
                         @else
-                        ${{ number_format($sale->amount_paid, 2) }}
+                        @php
+                        // Check if this is stored as LBP (new format) or USD (old format)
+                        if ($sale->currency === 'USD') {
+                        // Old format: stored in USD, display as-is
+                        $usdAmountPaid = $sale->amount_paid;
+                        } else {
+                        // New format: stored as LBP equivalent, convert back to USD
+                        $lbpRate = config('play.lbp_exchange_rate', 90000);
+                        $usdAmountPaid = $sale->amount_paid / $lbpRate;
+                        }
+                        @endphp
+                        ${{ number_format($usdAmountPaid, 2) }}
                         @endif
                     </p>
                 </div>
@@ -304,7 +372,12 @@
                         @if($sale->payment_method === 'LBP')
                         {{ number_format($change) }} L.L
                         @else
-                        ${{ number_format($change, 2) }}
+                        @php
+                        // Convert back to USD for display if original payment was USD
+                        $lbpRate = config('play.lbp_exchange_rate', 90000);
+                        $usdChange = $change / $lbpRate;
+                        @endphp
+                        ${{ number_format($usdChange, 2) }}
                         @endif
                     </p>
                 </div>
@@ -326,8 +399,8 @@
                             <p class="text-xs text-gray-600">Main sale: #{{ $sale->parent_sale->id }}
                                 ({{ $sale->parent_sale->created_at->format('M d, Y h:i A') }})</p>
                         </div>
-                        <a href="{{ route('cashier.sales.show', $sale->parent_sale->id) }}" 
-                           class="px-3 py-1 text-xs bg-blue-500 text-white rounded hover:bg-blue-600">
+                        <a href="{{ route('cashier.sales.show', $sale->parent_sale->id) }}"
+                            class="px-3 py-1 text-xs bg-blue-500 text-white rounded hover:bg-blue-600">
                             View Main Sale
                         </a>
                     </div>
@@ -384,39 +457,39 @@
                         <span class="text-sm text-gray-500 ml-1">total sessions</span>
                     </p>
                 </div>
-                
+
                 @if(!empty($sale->child->marketing_sources))
                 <div class="col-span-1 md:col-span-2 mt-3">
                     <p class="text-sm text-gray-500">Marketing Sources:</p>
                     <div class="flex flex-wrap gap-2 mt-1">
                         @foreach($sale->child->marketing_sources as $source)
-                            <span class="px-2 py-1 text-xs bg-blue-100 text-blue-800 rounded-full">
-                                @switch($source)
-                                    @case('facebook')
-                                        Facebook
-                                        @break
-                                    @case('instagram')
-                                        Instagram
-                                        @break
-                                    @case('tiktok')
-                                        TikTok
-                                        @break
-                                    @case('passing_by')
-                                        Saw from outside
-                                        @break
-                                    @case('mascot')
-                                        Mascot outside
-                                        @break
-                                    @case('word_of_mouth')
-                                        Word of mouth
-                                        @break
-                                    @default
-                                        {{ $source }}
-                                @endswitch
-                            </span>
+                        <span class="px-2 py-1 text-xs bg-blue-100 text-blue-800 rounded-full">
+                            @switch($source)
+                            @case('facebook')
+                            Facebook
+                            @break
+                            @case('instagram')
+                            Instagram
+                            @break
+                            @case('tiktok')
+                            TikTok
+                            @break
+                            @case('passing_by')
+                            Saw from outside
+                            @break
+                            @case('mascot')
+                            Mascot outside
+                            @break
+                            @case('word_of_mouth')
+                            Word of mouth
+                            @break
+                            @default
+                            {{ $source }}
+                            @endswitch
+                        </span>
                         @endforeach
                     </div>
-                    
+
                     @if(!empty($sale->child->marketing_notes))
                     <p class="text-xs text-gray-600 mt-2">{{ $sale->child->marketing_notes }}</p>
                     @endif
@@ -433,24 +506,24 @@
         if ($sale->play_session->ended_at) {
         $sessionDuration =
         $sale->play_session->started_at->diffAsCarbonInterval($sale->play_session->ended_at)->cascade();
-            
-            // Calculate billed hours for display
-            $actualMinutes = $sale->play_session->started_at->diffInMinutes($sale->play_session->ended_at);
-            $displayHours = round($actualMinutes / 60, 2);
-            
-            // Use billed_hours if available, otherwise calculate from actual time
-            if ($sale->play_session->billed_hours !== null) {
-                $billedHours = $sale->play_session->billed_hours;
-            } else {
-                // Legacy calculation - use actual time or planned time, whichever is appropriate
-                $billedHours = $displayHours;
-            }
-            
-            $billTimeDisplay = number_format($billedHours, 2) . 'h';
+
+        // Calculate billed hours for display
+        $actualMinutes = $sale->play_session->started_at->diffInMinutes($sale->play_session->ended_at);
+        $displayHours = round($actualMinutes / 60, 2);
+
+        // Use billed_hours if available, otherwise calculate from actual time
+        if ($sale->play_session->billed_hours !== null) {
+        $billedHours = $sale->play_session->billed_hours;
         } else {
-            $sessionDuration = $sale->play_session->started_at->diffAsCarbonInterval(now())->cascade();
-            $displayHours = 0;
-            $billTimeDisplay = 'Session ongoing';
+        // Legacy calculation - use actual time or planned time, whichever is appropriate
+        $billedHours = $displayHours;
+        }
+
+        $billTimeDisplay = number_format($billedHours, 2) . 'h';
+        } else {
+        $sessionDuration = $sale->play_session->started_at->diffAsCarbonInterval(now())->cascade();
+        $displayHours = 0;
+        $billTimeDisplay = 'Session ongoing';
         }
         @endphp
         <div class="border-t p-6">
@@ -521,7 +594,7 @@
                         @endif
                     </p>
                 </div>
-                
+
                 <div>
                     <p class="text-sm text-gray-500">Hourly Rate:</p>
                     <p class="font-medium">
@@ -598,10 +671,10 @@
                                 @php
                                 // Pivot subtotals are stored in USD, convert to payment currency for display
                                 if($sale->payment_method === 'LBP') {
-                                    $displaySubtotal = $addOn->pivot->subtotal * config('play.lbp_exchange_rate', 90000);
-                                    $formattedSubtotal = number_format($displaySubtotal) . ' L.L';
+                                $displaySubtotal = $addOn->pivot->subtotal * config('play.lbp_exchange_rate', 90000);
+                                $formattedSubtotal = number_format($displaySubtotal) . ' L.L';
                                 } else {
-                                    $formattedSubtotal = '$' . number_format($addOn->pivot->subtotal, 2);
+                                $formattedSubtotal = '$' . number_format($addOn->pivot->subtotal, 2);
                                 }
                                 @endphp
                                 {{ $formattedSubtotal }}
@@ -660,10 +733,10 @@ body {
                 </svg>
             </button>
         </div>
-        
+
         <div class="mb-6">
             <p class="text-gray-700 mb-2">Are you sure you want to delete this sale receipt?</p>
-            
+
             @if($sale->play_session_id)
             <div class="bg-yellow-50 border-l-4 border-yellow-500 p-4">
                 <div class="flex">
@@ -683,7 +756,7 @@ body {
                 </div>
             </div>
             @endif
-            
+
             <div class="mt-4 bg-red-50 border-l-4 border-red-500 p-4">
                 <div class="flex">
                     <div class="flex-shrink-0">
@@ -702,7 +775,7 @@ body {
                 </div>
             </div>
         </div>
-        
+
         <div class="flex justify-end space-x-3">
             <button onclick="hideDeleteConfirmation()"
                 class="px-4 py-2 bg-gray-300 text-gray-800 rounded hover:bg-gray-400">
@@ -720,12 +793,12 @@ body {
 </div>
 
 <script>
-    function showDeleteConfirmation() {
-        document.getElementById('delete-modal').classList.remove('hidden');
-    }
-    
-    function hideDeleteConfirmation() {
-        document.getElementById('delete-modal').classList.add('hidden');
-    }
+function showDeleteConfirmation() {
+    document.getElementById('delete-modal').classList.remove('hidden');
+}
+
+function hideDeleteConfirmation() {
+    document.getElementById('delete-modal').classList.add('hidden');
+}
 </script>
 @endsection

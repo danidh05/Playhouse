@@ -213,19 +213,24 @@
                             </span>
                         </td>
                         <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                            @if($hasCustomPrice)
-                                @if($sale->payment_method === 'LBP')
-                                    {{ number_format($displayTotal) }} L.L
-                                @else
-                                    ${{ number_format($displayTotal, 2) }}
-                                @endif
-                                <div class="text-xs text-blue-600 font-normal">(Custom)</div>
+                            @if($sale->currency === 'LBP' || $sale->payment_method === 'LBP')
+                                {{ number_format($displayTotal, 0) }} L.L
                             @else
-                                @if($sale->payment_method === 'LBP')
-                                    {{ number_format($displayTotal) }} L.L
-                                @else
-                                    ${{ number_format($displayTotal, 2) }}
-                                @endif
+                                @php
+                                    // Check if this is stored as LBP (new format) or USD (old format)
+                                    if ($sale->currency === 'USD') {
+                                        // Old format: stored in USD, display as-is
+                                        $usdTotal = $displayTotal;
+                                    } else {
+                                        // New format: stored as LBP equivalent, convert back to USD
+                                        $lbpRate = config('play.lbp_exchange_rate', 90000);
+                                        $usdTotal = $displayTotal / $lbpRate;
+                                    }
+                                @endphp
+                                ${{ number_format($usdTotal, 2) }}
+                            @endif
+                            @if($hasCustomPrice)
+                                <div class="text-xs text-blue-600 font-normal">(Custom)</div>
                             @endif
                         </td>
                         <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
