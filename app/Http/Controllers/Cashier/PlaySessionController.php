@@ -437,18 +437,19 @@ class PlaySessionController extends Controller
         if ($paymentMethod === 'LBP') {
             $lbpRate = config('play.lbp_exchange_rate', 90000);
             $addonsTotal = round($addonsBaseTotal * $lbpRate);
-            $rawTimeCost = round($rawTimeCost * $lbpRate);
+            $rawTimeCostConverted = round($rawTimeCost * $lbpRate);
         } else {
             $addonsTotal = $addonsBaseTotal;
+            $rawTimeCostConverted = $rawTimeCost;
         }
         
         // Apply discount only to time cost, not to add-ons (same as end method)
         $discountPct = $session->discount_pct ?? 0;
         $discountMultiplier = (100 - $discountPct) / 100;
-        $timeCost = round($rawTimeCost * $discountMultiplier, 2);
+        $timeCost = round($rawTimeCostConverted * $discountMultiplier, 2);
         
         // Discount amount is the difference between raw time cost and discounted time cost
-        $discountAmount = $rawTimeCost - $timeCost;
+        $discountAmount = $rawTimeCostConverted - $timeCost;
         
         // Get pending product sales
         $pendingSales = \App\Models\Sale::where('play_session_id', $session->id)
@@ -465,14 +466,15 @@ class PlaySessionController extends Controller
             $pendingSalesTotal = $pendingSalesBaseTotal;
         }
         
-        // Subtotal for display (raw time cost + add-ons)
-        $subtotal = $rawTimeCost + $addonsTotal + $pendingSalesTotal;
+        // Subtotal for display (raw time cost + add-ons) - use converted amounts
+        $subtotal = $rawTimeCostConverted + $addonsTotal + $pendingSalesTotal;
         
-        // Total amount is discounted time cost plus add-ons plus pending sales
-        $totalAmount = round($timeCost + $addonsTotal + $pendingSalesTotal, 2);
+        // Total amount is discounted time cost plus add-ons plus pending sales - use converted amounts
+        $totalAmount = round($timeCost + $addonsTotal + $pendingSalesTotal, $paymentMethod === 'LBP' ? 0 : 2);
         
         $paymentMethods = config('play.payment_methods', []);
         
+        // Pass the converted rawTimeCost as rawTimeCost for the view
         return view('cashier.sessions.end', compact(
             'session',
             'addOns',
@@ -483,14 +485,13 @@ class PlaySessionController extends Controller
             'actualDurationForBilling',
             'cappedHours',
             'initialDuration',
-            'rawTimeCost',
             'timeCost',
             'subtotal',
             'discountAmount',
             'totalAmount',
             'pendingSales',
             'pendingSalesTotal'
-        ));
+        ) + ['rawTimeCost' => $rawTimeCostConverted]);
     }
 
     /**
