@@ -229,47 +229,20 @@ class SalesController extends Controller
             $playSessionsCount = \App\Models\PlaySession::where('child_id', $sale->child_id)->count();
         }
         
-        // If there's a play session with zero actual_hours but it has ended, calculate the hours
-        if ($sale->play_session && $sale->play_session->ended_at) {
-            // Calculate actual hours if not set
-            if ($sale->play_session->actual_hours == 0) {
-                $startTime = $sale->play_session->started_at;
-                $endTime = $sale->play_session->ended_at;
-                $durationMinutes = $startTime->diffInMinutes($endTime);
-                $actualHours = $durationMinutes / 60;
-                
-                // Update play session actual hours
-                $sale->play_session->update(['actual_hours' => $actualHours]);
-            } else {
-                $actualHours = $sale->play_session->actual_hours;
-            }
+        // DISABLED: No longer recalculating totals - we use ONLY cashier's custom amounts
+        // If there's a play session with zero actual_hours but it has ended, just update the hours for record keeping
+        if ($sale->play_session && $sale->play_session->ended_at && $sale->play_session->actual_hours == 0) {
+            $startTime = $sale->play_session->started_at;
+            $endTime = $sale->play_session->ended_at;
+            $durationMinutes = $startTime->diffInMinutes($endTime);
+            $actualHours = $durationMinutes / 60;
             
-            // Recalculate total cost to ensure it's correct
-            $hourlyRate = config('play.hourly_rate', 10.00);
-            $baseTotal = $actualHours * $hourlyRate;
-            
-            // Make sure add-ons are loaded
-            $sale->load('play_session.addOns');
-            
-            // Get add-ons total
-            $addOnsTotal = $sale->play_session->addOns->sum(function ($addOn) {
-                return $addOn->pivot->subtotal;
-            });
-            
-            // Apply discount only to time cost
-            $discountMultiplier = (100 - ($sale->play_session->discount_pct ?? 0)) / 100;
-            $timeCost = $baseTotal * $discountMultiplier;
-            $totalCost = round($timeCost + $addOnsTotal, 2);
-            
-            // Only update if the total cost has changed
-            if (abs($sale->play_session->total_cost - $totalCost) > 0.01) {
-                $sale->play_session->update(['total_cost' => $totalCost]);
-                $sale->update(['total_amount' => $totalCost]);
-                
-                // Refresh the model
-                $sale->load(['play_session', 'play_session.addOns']);
-            }
+            // Update ONLY actual hours for record keeping - DO NOT touch amounts
+            $sale->play_session->update(['actual_hours' => $actualHours]);
         }
+        
+        // IMPORTANT: We NO LONGER recalculate or override amounts set by the cashier
+        // The cashier's custom amounts in total_amount and total_cost are FINAL
         
         return view('cashier.sales.show', compact('sale', 'playSessionsCount'));
     }

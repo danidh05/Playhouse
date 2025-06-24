@@ -129,8 +129,14 @@
                                 <div class="text-sm text-gray-500">{{ $child->guardian_phone }}</div>
                                 </td>
                             <td class="px-6 py-4 whitespace-nowrap">
-                                <div class="text-sm text-gray-900">{{ $child->birth_date->age }} years</div>
-                                <div class="text-sm text-gray-500">{{ $child->birth_date->format('M d, Y') }}</div>
+                                <div class="text-sm text-gray-900">
+                                    {{ $child->birth_date ? $child->birth_date->age : $child->age }} years
+                                </div>
+                                @if($child->birth_date)
+                                    <div class="text-sm text-gray-500">{{ $child->birth_date->format('M d, Y') }}</div>
+                                @else
+                                    <div class="text-sm text-gray-500">Age provided</div>
+                                @endif
                                 </td>
                             <td class="px-6 py-4 whitespace-nowrap">
                                 <div class="text-sm text-gray-900">

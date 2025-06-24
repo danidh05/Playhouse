@@ -81,7 +81,7 @@
                         </div>
                         <div>
                             <div class="text-lg font-medium text-gray-900">{{ $session->child->name }}</div>
-                            <div class="text-sm text-gray-500">{{ $session->child->birth_date->age }} years old</div>
+                            <div class="text-sm text-gray-500">{{ $session->child->birth_date ? $session->child->birth_date->age : $session->child->age }} years old</div>
                         </div>
                     </div>
                     <div class="border-t">

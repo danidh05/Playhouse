@@ -474,6 +474,19 @@ class PlaySessionController extends Controller
         
         $paymentMethods = config('play.payment_methods', []);
         
+        // TEMPORARY DEBUG - log what we're passing to the view
+        \Log::info("PlaySession showEnd Debug", [
+            'session_id' => $session->id,
+            'payment_method' => $paymentMethod,
+            'rawTimeCost' => $rawTimeCost,
+            'rawTimeCostConverted' => $rawTimeCostConverted,
+            'addonsBaseTotal' => $addonsBaseTotal,
+            'addonsTotal' => $addonsTotal,
+            'timeCost' => $timeCost,
+            'totalAmount' => $totalAmount,
+            'lbpRate' => config('play.lbp_exchange_rate', 90000)
+        ]);
+        
         // Pass the converted rawTimeCost as rawTimeCost for the view
         return view('cashier.sessions.end', compact(
             'session',
@@ -677,9 +690,10 @@ class PlaySessionController extends Controller
     
         // Update session - CRITICAL: store in payment currency without any conversion
         $session->ended_at = now();
+        $session->actual_hours = $actualHours; // Store actual hours for record keeping
         $session->payment_method = $paymentMethod;
-        $session->total_cost = $totalAmountToStore; // LBP amount for LBP payments, USD for USD
-        $session->amount_paid = $amountPaidToStore; // LBP amount for LBP payments, USD for USD
+        $session->total_cost = $totalAmountToStore; // CASHIER'S CUSTOM AMOUNT - NOT CALCULATED
+        $session->amount_paid = $amountPaidToStore; // CASHIER'S CUSTOM AMOUNT - NOT CALCULATED
         $session->save();
 
         // Create or update the main sale for this session - CRITICAL: same currency consistency
@@ -709,6 +723,9 @@ class PlaySessionController extends Controller
             ]);
         }
 
+        // CRITICAL: Refresh sale model to ensure we have the latest custom amounts
+        $sale->refresh();
+        
         // Create sale items for the session time and add-ons to display on receipt
         $this->createSaleItemsForSession($sale, $session);
     
@@ -1035,10 +1052,21 @@ class PlaySessionController extends Controller
                     $actualHours = $session->planned_hours;
                 }
 
-                // Calculate total cost
-                $totalCost = $actualHours * $hourlyRate;
+                // Calculate total cost in USD first
+                $totalCostUSD = $actualHours * $hourlyRate;
                 if ($session->discount_pct > 0) {
-                    $totalCost = $totalCost * ((100 - $session->discount_pct) / 100);
+                    $totalCostUSD = $totalCostUSD * ((100 - $session->discount_pct) / 100);
+                }
+
+                // Convert to payment currency for storage consistency
+                $paymentMethod = $request->payment_method;
+                if ($paymentMethod === 'LBP') {
+                    $lbpRate = config('play.lbp_exchange_rate', 90000);
+                    $totalAmountToStore = round($totalCostUSD * $lbpRate, 0);
+                    $amountPaidToStore = $totalAmountToStore; // Same for auto-close
+                } else {
+                    $totalAmountToStore = round($totalCostUSD, 2);
+                    $amountPaidToStore = $totalAmountToStore; // Same for auto-close
                 }
 
                 // Add note about automatic closure
@@ -1050,13 +1078,13 @@ class PlaySessionController extends Controller
                     $session->notes = $note;
                 }
 
-                // Update session
+                // Update session - store in payment currency
                 $session->update([
                     'ended_at' => $endTime,
                     'actual_hours' => $actualHours,
-                    'amount_paid' => $totalCost,
-                    'payment_method' => $request->payment_method,
-                    'total_cost' => $totalCost,
+                    'amount_paid' => $amountPaidToStore,
+                    'payment_method' => $paymentMethod,
+                    'total_cost' => $totalAmountToStore,
                 ]);
 
                 // Get the current cashier's active shift
@@ -1074,13 +1102,14 @@ class PlaySessionController extends Controller
                     ]);
                 }
 
-                // Create sale record
+                // Create sale record - store same amounts as session
                 \App\Models\Sale::create([
                     'shift_id' => $currentCashierShift->id,
                     'user_id' => Auth::id(),
-                    'total_amount' => $totalCost,
-                    'amount_paid' => $totalCost,
-                    'payment_method' => $request->payment_method,
+                    'total_amount' => $totalAmountToStore, // Same as session.total_cost
+                    'amount_paid' => $amountPaidToStore,   // Same as session.amount_paid
+                    'payment_method' => $paymentMethod,
+                    'currency' => $paymentMethod,
                     'child_id' => $session->child_id,
                     'play_session_id' => $session->id,
                     'status' => 'completed',
@@ -1106,6 +1135,7 @@ class PlaySessionController extends Controller
 
     /**
      * Create sale items for a session to display properly on receipt.
+     * CRITICAL: This method uses the cashier's custom total amount, not calculated amounts.
      */
     private function createSaleItemsForSession(Sale $sale, PlaySession $session)
     {
@@ -1117,13 +1147,18 @@ class PlaySessionController extends Controller
         $endTime = $session->ended_at ?? now();
         $durationInHours = round($startTime->diffInMinutes($endTime) / 60, 2);
         
-        // Create sale item for session time using the custom total amount
+        // IMPORTANT: Use the cashier's custom total amount (sale.total_amount)
+        // This is the amount the cashier entered, not any server calculation
+        $cashierCustomAmount = $sale->total_amount;
+        $customUnitPrice = $durationInHours > 0 ? round($cashierCustomAmount / $durationInHours, 2) : 0;
+        
+        // Create sale item for session time using ONLY the cashier's custom amount
         \App\Models\SaleItem::create([
             'sale_id' => $sale->id,
             'description' => 'Play session time (' . $durationInHours . ' hours)',
             'quantity' => $durationInHours,
-            'unit_price' => $durationInHours > 0 ? round($sale->total_amount / $durationInHours, 2) : 0,
-            'subtotal' => $sale->total_amount, // Use the custom total amount
+            'unit_price' => $customUnitPrice,
+            'subtotal' => $cashierCustomAmount, // CASHIER'S CUSTOM AMOUNT - NOT CALCULATED
             'product_id' => null,
             'add_on_id' => null
         ]);

@@ -74,36 +74,37 @@
                 @if(count($sales) > 0)
                 @foreach($sales as $sale)
                 @php
-                    // Use the stored amounts directly since they're now in the correct currency
-                    $baseTotal = $sale->total_amount;
-                    
-                    // Add child sales totals if any (they should be in same currency)
-                    $childSalesTotal = 0;
-                    if ($sale->child_sales && $sale->child_sales->count() > 0) {
-                        $childSalesTotal = $sale->child_sales->sum('total_amount');
-                    }
-                    
-                    // Calculate items total accounting for add-on currency conversion
-                    $itemsTotal = 0;
-                    foreach ($sale->items as $item) {
-                        if ($item->add_on_id && $sale->payment_method === 'LBP') {
-                            // Add-on items are stored in USD, convert to LBP for calculation
-                            $itemsTotal += $item->subtotal * config('play.lbp_exchange_rate', 90000);
-                        } else {
-                            // Regular products and USD add-ons use stored value
-                            $itemsTotal += $item->subtotal;
-                        }
-                    }
-                    
-                    // Use the stored total amount (which is the custom amount set by cashier)
-                    // This preserves the exact amount the cashier specified
-                    $displayTotal = $baseTotal + $childSalesTotal;
-                    
-                    // Check for custom pricing in play session notes
-                    $hasCustomPrice = false;
-                    if ($sale->play_session && $sale->play_session->notes && strpos($sale->play_session->notes, 'Manual price set by cashier') !== false) {
-                        $hasCustomPrice = true;
-                    }
+                // Use the stored amounts directly since they're now in the correct currency
+                $baseTotal = $sale->total_amount;
+
+                // Add child sales totals if any (they should be in same currency)
+                $childSalesTotal = 0;
+                if ($sale->child_sales && $sale->child_sales->count() > 0) {
+                $childSalesTotal = $sale->child_sales->sum('total_amount');
+                }
+
+                // Calculate items total accounting for add-on currency conversion
+                $itemsTotal = 0;
+                foreach ($sale->items as $item) {
+                if ($item->add_on_id && $sale->payment_method === 'LBP') {
+                // Add-on items are stored in USD, convert to LBP for calculation
+                $itemsTotal += $item->subtotal * config('play.lbp_exchange_rate', 90000);
+                } else {
+                // Regular products and USD add-ons use stored value
+                $itemsTotal += $item->subtotal;
+                }
+                }
+
+                // Use the stored total amount (which is the custom amount set by cashier)
+                // This preserves the exact amount the cashier specified
+                $displayTotal = $baseTotal + $childSalesTotal;
+
+                // Check for custom pricing in play session notes
+                $hasCustomPrice = false;
+                if ($sale->play_session && $sale->play_session->notes && strpos($sale->play_session->notes, 'Manual
+                price set by cashier') !== false) {
+                $hasCustomPrice = true;
+                }
                 @endphp
                 <tr class="border-b hover:bg-gray-50">
                     <td class="px-4 py-2 whitespace-nowrap">#{{ $sale->id }}</td>
@@ -124,22 +125,22 @@
                         <div class="max-w-xs">
                             @foreach($sale->items as $item)
                             <div class="text-sm mb-1 last:mb-0">
-                                <span class="font-medium">{{ $item->quantity }}x</span> 
+                                <span class="font-medium">{{ $item->quantity }}x</span>
                                 @if($item->product_id)
-                                    {{ $item->product->name }}
+                                {{ $item->product->name }}
                                 @elseif($item->add_on_id)
-                                    {{ $item->addOn->name }} <span class="text-xs text-primary">(Add-on)</span>
+                                {{ $item->addOn->name }} <span class="text-xs text-primary">(Add-on)</span>
                                 @endif
                                 <span class="text-xs text-gray-500">
                                     @php
                                     // For add-on items, subtotals are stored in USD, convert for LBP display
                                     if($item->add_on_id && $sale->payment_method === 'LBP') {
-                                        $displaySubtotal = $item->subtotal * config('play.lbp_exchange_rate', 90000);
-                                        $formattedSubtotal = number_format($displaySubtotal) . ' L.L';
+                                    $displaySubtotal = $item->subtotal * config('play.lbp_exchange_rate', 90000);
+                                    $formattedSubtotal = number_format($displaySubtotal) . ' L.L';
                                     } elseif($sale->payment_method === 'LBP') {
-                                        $formattedSubtotal = number_format($item->subtotal) . ' L.L';
+                                    $formattedSubtotal = number_format($item->subtotal) . ' L.L';
                                     } else {
-                                        $formattedSubtotal = '$' . number_format($item->subtotal, 2);
+                                    $formattedSubtotal = '$' . number_format($item->subtotal, 2);
                                     }
                                     @endphp
                                     {{ $formattedSubtotal }}
@@ -158,18 +159,18 @@
                     </td>
                     <td class="px-4 py-2 whitespace-nowrap font-semibold">
                         @if($hasCustomPrice)
-                            @if($sale->payment_method === 'LBP')
-                                {{ number_format($displayTotal) }} L.L
-                            @else
-                                ${{ number_format($displayTotal, 2) }}
-                            @endif
-                            <div class="text-xs text-blue-600 font-normal">(Custom)</div>
+                        @if($sale->payment_method === 'LBP')
+                        {{ number_format($displayTotal) }} L.L
                         @else
-                            @if($sale->payment_method === 'LBP')
-                                {{ number_format($displayTotal) }} L.L
-                            @else
-                                ${{ number_format($displayTotal, 2) }}
-                            @endif
+                        ${{ number_format($displayTotal, 2) }}
+                        @endif
+                        <div class="text-xs text-blue-600 font-normal">(Custom)</div>
+                        @else
+                        @if($sale->payment_method === 'LBP')
+                        {{ number_format($displayTotal) }} L.L
+                        @else
+                        ${{ number_format($displayTotal, 2) }}
+                        @endif
                         @endif
                     </td>
                     <td class="px-4 py-2 whitespace-nowrap">
