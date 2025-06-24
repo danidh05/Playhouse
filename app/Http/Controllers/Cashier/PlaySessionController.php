@@ -688,6 +688,9 @@ class PlaySessionController extends Controller
                 'notes' => 'Play session payment'
             ]);
         }
+
+        // Create sale items for the session time and add-ons to display on receipt
+        $this->createSaleItemsForSession($sale, $session);
     
         // Redirect to sale detail view
         return redirect()->route('cashier.sales.show', $sale->id)
@@ -1080,4 +1083,31 @@ class PlaySessionController extends Controller
         return redirect()->route('cashier.sessions.index')
             ->with('success', $message);
     }
+
+    /**
+     * Create sale items for a session to display properly on receipt.
+     */
+    private function createSaleItemsForSession(Sale $sale, PlaySession $session)
+    {
+        // Delete existing sale items for this sale to avoid duplicates
+        \App\Models\SaleItem::where('sale_id', $sale->id)->delete();
+        
+        // Calculate session duration
+        $startTime = $session->started_at;
+        $endTime = $session->ended_at ?? now();
+        $durationInHours = round($startTime->diffInMinutes($endTime) / 60, 2);
+        
+        // Create sale item for session time using the custom total amount
+        \App\Models\SaleItem::create([
+            'sale_id' => $sale->id,
+            'description' => 'Play session time (' . $durationInHours . ' hours)',
+            'quantity' => $durationInHours,
+            'unit_price' => $durationInHours > 0 ? round($sale->total_amount / $durationInHours, 2) : 0,
+            'subtotal' => $sale->total_amount, // Use the custom total amount
+            'product_id' => null,
+            'add_on_id' => null
+        ]);
+    }
+
+
 } 
