@@ -619,13 +619,13 @@ class PlaySessionController extends Controller
         $paymentMethod = $request->payment_method;
         $lbpRate = config('play.lbp_exchange_rate', 90000);
     
-        // Store amounts in the original currency to preserve cashier's exact input
+        // CRITICAL FIX: Store amounts in the same currency as payment_method
         if ($paymentMethod === 'LBP') {
-            // For LBP payments, store the LBP amounts directly (don't convert to USD)
-            $totalAmountToStore = round($request->total_cost, 0); // LBP amounts (no decimals)
-            $amountPaidToStore = round($request->amount_paid, 0); // LBP amounts (no decimals)
+            // For LBP payments, store LBP amounts directly (no conversion)
+            $totalAmountToStore = round($request->total_cost, 0); // Store LBP amount as entered
+            $amountPaidToStore = round($request->amount_paid, 0); // Store LBP amount as entered
             
-            // Add a note if the manual price differs from the calculated price
+            // For comparison notes, convert calculated USD amount to LBP
             $calculatedAmountLbp = round($calculatedTotalCost * $lbpRate);
             if (abs($request->total_cost - $calculatedAmountLbp) > 0.01 * $calculatedAmountLbp) {
                 $customPriceNote = "Note: Manual price set by cashier: " . number_format($request->total_cost) . " LBP. ";
@@ -638,9 +638,9 @@ class PlaySessionController extends Controller
                 }
             }
         } else {
-            // For USD payments, store USD amounts
-            $totalAmountToStore = round($request->total_cost, 2);
-            $amountPaidToStore = round($request->amount_paid, 2);
+            // For USD payments, store USD amounts directly (no conversion)
+            $totalAmountToStore = round($request->total_cost, 2); // Store USD amount as entered
+            $amountPaidToStore = round($request->amount_paid, 2); // Store USD amount as entered
             
             // Add a note if the manual price differs from the calculated price
             if (abs($totalAmountToStore - $calculatedTotalCost) > 0.01) {
@@ -655,20 +655,20 @@ class PlaySessionController extends Controller
             }
         }
     
-        // Update session - store amounts in selected currency without conversion
+        // Update session - CRITICAL: store in payment currency without any conversion
         $session->ended_at = now();
         $session->payment_method = $paymentMethod;
-        $session->total_cost = $totalAmountToStore;
-        $session->amount_paid = $amountPaidToStore;
+        $session->total_cost = $totalAmountToStore; // LBP amount for LBP payments, USD for USD
+        $session->amount_paid = $amountPaidToStore; // LBP amount for LBP payments, USD for USD
         $session->save();
 
-        // Create or update the main sale for this session
+        // Create or update the main sale for this session - CRITICAL: same currency consistency
         $existingSale = Sale::where('play_session_id', $session->id)->first();
         
         if ($existingSale) {
             $existingSale->update([
-                'total_amount' => $totalAmountToStore,
-                'amount_paid' => $amountPaidToStore,
+                'total_amount' => $totalAmountToStore, // Same currency as payment_method
+                'amount_paid' => $amountPaidToStore,   // Same currency as payment_method
                 'payment_method' => $paymentMethod,
                 'currency' => $paymentMethod,
                 'status' => 'completed'
@@ -680,8 +680,8 @@ class PlaySessionController extends Controller
                 'shift_id' => $session->shift_id,
                 'user_id' => Auth::id(),
                 'child_id' => $session->child_id,
-                'total_amount' => $totalAmountToStore,
-                'amount_paid' => $amountPaidToStore,
+                'total_amount' => $totalAmountToStore, // Same currency as payment_method
+                'amount_paid' => $amountPaidToStore,   // Same currency as payment_method
                 'payment_method' => $paymentMethod,
                 'currency' => $paymentMethod,
                 'status' => 'completed',

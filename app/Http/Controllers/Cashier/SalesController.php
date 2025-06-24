@@ -491,24 +491,31 @@ class SalesController extends Controller
         return DB::transaction(function () use ($request, $shift) {
             $paymentMethod = $request->payment_method;
             
-            // Use the custom total set by the cashier (no conversions)
-            $totalCost = $request->custom_total;
-            $amountPaid = $request->amount_paid;
+            // CRITICAL FIX: Store amounts in the same currency as payment_method
+            if ($paymentMethod === 'LBP') {
+                // For LBP payments, store LBP amounts directly
+                $totalAmountToStore = round($request->custom_total, 0); // Store LBP amount as entered
+                $amountPaidToStore = round($request->amount_paid, 0);  // Store LBP amount as entered
+            } else {
+                // For USD payments, store USD amounts directly  
+                $totalAmountToStore = round($request->custom_total, 2); // Store USD amount as entered
+                $amountPaidToStore = round($request->amount_paid, 2);  // Store USD amount as entered
+            }
             
             // Validate amount paid is sufficient
-            if ($amountPaid < $totalCost) {
+            if ($amountPaidToStore < $totalAmountToStore) {
                 return redirect()->back()
                     ->with('error', 'Amount paid must be at least the total cost.')
                     ->withInput();
             }
 
-            // Create the sale
+            // Create the sale - CRITICAL: store in payment currency without conversion
             $sale = Sale::create([
                 'shift_id' => $shift->id,
                 'user_id' => Auth::id(),
                 'child_id' => $request->child_id,
-                'total_amount' => $totalCost,
-                'amount_paid' => $amountPaid,
+                'total_amount' => $totalAmountToStore, // Same currency as payment_method
+                'amount_paid' => $amountPaidToStore,   // Same currency as payment_method
                 'payment_method' => $paymentMethod,
                 'currency' => $paymentMethod,
                 'status' => 'completed',
