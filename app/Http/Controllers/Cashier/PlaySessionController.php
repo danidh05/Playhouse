@@ -619,33 +619,32 @@ class PlaySessionController extends Controller
         $paymentMethod = $request->payment_method;
         $lbpRate = config('play.lbp_exchange_rate', 90000);
     
-        // CRITICAL FIX: Store amounts in the same currency as payment_method
+        // BETTER APPROACH: Always store amounts in their native currency
+        // LBP payments: store large LBP numbers (e.g., 180000)
+        // USD payments: store small USD numbers (e.g., 2.00)
         if ($paymentMethod === 'LBP') {
-            // SMART CONVERSION: If user enters a small amount (< 1000) for LBP,
-            // assume they meant USD and convert it to LBP
+            // For LBP payments, always ensure we store meaningful LBP amounts
             if ($request->total_cost < 1000) {
+                // User likely entered USD amount, convert to LBP for storage
                 $lbpRate = config('play.lbp_exchange_rate', 90000);
-                $totalAmountToStore = round($request->total_cost * $lbpRate, 0); // Convert USD to LBP
-                $sessionNoteForConversion = "Note: Total cost of ${$request->total_cost} was automatically converted to " . number_format($totalAmountToStore) . " LBP.";
+                $totalAmountToStore = round($request->total_cost * $lbpRate, 0);
+                $amountPaidToStore = round($request->amount_paid * $lbpRate, 0);
+                
+                $conversionNote = "Note: Amounts entered in USD (${$request->total_cost} total, ${$request->amount_paid} paid) were converted to LBP (" . number_format($totalAmountToStore) . " total, " . number_format($amountPaidToStore) . " paid) for storage.";
                 
                 if ($session->notes) {
-                    $session->notes .= "\n\n" . $sessionNoteForConversion;
+                    $session->notes .= "\n\n" . $conversionNote;
                 } else {
-                    $session->notes = $sessionNoteForConversion;
+                    $session->notes = $conversionNote;
                 }
             } else {
-                // For LBP payments with large amounts, store LBP amounts directly
-                $totalAmountToStore = round($request->total_cost, 0); // Store LBP amount as entered
+                // User entered LBP amounts directly - store as-is
+                $totalAmountToStore = round($request->total_cost, 0);
+                $amountPaidToStore = round($request->amount_paid, 0);
             }
             
-            // Apply same logic to amount paid
-            if ($request->amount_paid < 1000) {
-                $amountPaidToStore = round($request->amount_paid * $lbpRate, 0); // Convert USD to LBP
-            } else {
-                $amountPaidToStore = round($request->amount_paid, 0); // Store LBP amount as entered
-            }
-            
-            // For comparison notes, convert calculated USD amount to LBP
+            // For comparison notes with LBP, convert calculated USD amount to LBP
+            $lbpRate = config('play.lbp_exchange_rate', 90000);
             $calculatedAmountLbp = round($calculatedTotalCost * $lbpRate);
             if (abs($totalAmountToStore - $calculatedAmountLbp) > 0.01 * $calculatedAmountLbp) {
                 $customPriceNote = "Note: Manual price set by cashier: " . number_format($totalAmountToStore) . " LBP. ";
@@ -658,9 +657,9 @@ class PlaySessionController extends Controller
                 }
             }
         } else {
-            // For USD payments, store USD amounts directly (no conversion)
-            $totalAmountToStore = round($request->total_cost, 2); // Store USD amount as entered
-            $amountPaidToStore = round($request->amount_paid, 2); // Store USD amount as entered
+            // For USD payments, store USD amounts directly
+            $totalAmountToStore = round($request->total_cost, 2);
+            $amountPaidToStore = round($request->amount_paid, 2);
             
             // Add a note if the manual price differs from the calculated price
             if (abs($totalAmountToStore - $calculatedTotalCost) > 0.01) {
@@ -689,12 +688,12 @@ class PlaySessionController extends Controller
             $existingSale->update([
                 'total_amount' => $totalAmountToStore, // Same currency as payment_method
                 'amount_paid' => $amountPaidToStore,   // Same currency as payment_method
-                'payment_method' => $paymentMethod,
+            'payment_method' => $paymentMethod,
                 'currency' => $paymentMethod,
-                'status' => 'completed'
-            ]);
+            'status' => 'completed'
+        ]);
             $sale = $existingSale;
-        } else {
+            } else {
             $sale = Sale::create([
                 'play_session_id' => $session->id,
                 'shift_id' => $session->shift_id,

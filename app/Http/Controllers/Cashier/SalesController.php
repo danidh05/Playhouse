@@ -477,45 +477,43 @@ class SalesController extends Controller
             'add_ons.*.qty' => 'numeric|min:0.01'
         ]);
 
-        // Find active shift
-        $shift = Shift::where('cashier_id', Auth::id())
-                     ->whereNull('closed_at')
-                     ->first();
-        
-        if (!$shift) {
+                // Find active shift
+                $shift = Shift::where('cashier_id', Auth::id())
+                            ->whereNull('closed_at')
+                            ->first();
+                
+                if (!$shift) {
             return redirect()->back()
                 ->with('error', 'No active shift found.')
                 ->withInput();
         }
 
         return DB::transaction(function () use ($request, $shift) {
-            $paymentMethod = $request->payment_method;
+                $paymentMethod = $request->payment_method;
             
-            // CRITICAL FIX: Store amounts in the same currency as payment_method
+            // BETTER APPROACH: Always store amounts in their native currency
+            // LBP payments: store large LBP numbers (e.g., 180000)
+            // USD payments: store small USD numbers (e.g., 2.00)
             if ($paymentMethod === 'LBP') {
-                // SMART CONVERSION: If user enters a small amount (< 1000) for LBP,
-                // assume they meant USD and convert it to LBP
+                // For LBP payments, always ensure we store meaningful LBP amounts
                 $lbpRate = config('play.lbp_exchange_rate', 90000);
                 
                 if ($request->custom_total < 1000) {
-                    $totalAmountToStore = round($request->custom_total * $lbpRate, 0); // Convert USD to LBP
-                    $conversionNote = "Total cost of ${$request->custom_total} was automatically converted to " . number_format($totalAmountToStore) . " LBP.";
+                    // User likely entered USD amount, convert to LBP for storage
+                    $totalAmountToStore = round($request->custom_total * $lbpRate, 0);
+                    $amountPaidToStore = round($request->amount_paid * $lbpRate, 0);
+                    
+                    $conversionNote = "Amounts entered in USD (${$request->custom_total} total, ${$request->amount_paid} paid) were converted to LBP (" . number_format($totalAmountToStore) . " total, " . number_format($amountPaidToStore) . " paid) for storage.";
                 } else {
-                    // For LBP payments with large amounts, store LBP amounts directly
-                    $totalAmountToStore = round($request->custom_total, 0); // Store LBP amount as entered
+                    // User entered LBP amounts directly - store as-is
+                    $totalAmountToStore = round($request->custom_total, 0);
+                    $amountPaidToStore = round($request->amount_paid, 0);
                     $conversionNote = null;
                 }
-                
-                // Apply same logic to amount paid
-                if ($request->amount_paid < 1000) {
-                    $amountPaidToStore = round($request->amount_paid * $lbpRate, 0); // Convert USD to LBP
-                } else {
-                    $amountPaidToStore = round($request->amount_paid, 0); // Store LBP amount as entered
-                }
             } else {
-                // For USD payments, store USD amounts directly  
-                $totalAmountToStore = round($request->custom_total, 2); // Store USD amount as entered
-                $amountPaidToStore = round($request->amount_paid, 2);  // Store USD amount as entered
+                // For USD payments, store USD amounts directly
+                $totalAmountToStore = round($request->custom_total, 2);
+                $amountPaidToStore = round($request->amount_paid, 2);
                 $conversionNote = null;
             }
             
@@ -538,8 +536,8 @@ class SalesController extends Controller
                 'status' => 'completed',
                 'notes' => $conversionNote ? 'Add-on only sale (no play session). ' . $conversionNote : 'Add-on only sale (no play session)'
             ]);
-
-            // Create sale items for each add-on
+                
+                // Create sale items for each add-on
             foreach ($request->add_ons as $addOnId => $data) {
                 if (isset($data['qty']) && (float)$data['qty'] > 0) {
                     $addOn = \App\Models\AddOn::find($addOnId);
@@ -563,10 +561,10 @@ class SalesController extends Controller
                         ]);
                     }
                 }
-            }
-
-            return redirect()->route('cashier.sales.show', $sale)
-                ->with('success', 'Add-on sale completed successfully');
-        });
+                }
+                
+                return redirect()->route('cashier.sales.show', $sale)
+                    ->with('success', 'Add-on sale completed successfully');
+            });
     }
 } 
