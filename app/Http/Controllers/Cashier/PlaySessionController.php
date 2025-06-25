@@ -369,7 +369,7 @@ class PlaySessionController extends Controller
         }
     
         $request->validate([
-            'payment_method' => 'required|in:LBP,USD',
+            'payment_method' => ['required', Rule::in(config('play.payment_methods', ['USD', 'LBP']))],
             'total_cost' => 'required|numeric|min:0',
             'amount_paid' => 'required|numeric|min:0',
         ]);

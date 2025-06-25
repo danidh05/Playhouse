@@ -12,6 +12,31 @@
         </a>
     </div>
 
+    @if($errors->any())
+    <div class="bg-red-50 border-l-4 border-red-500 p-4 mb-6">
+        <div class="flex">
+            <div class="ml-3">
+                <p class="text-sm text-red-700 font-medium">Please fix the following errors:</p>
+                <ul class="text-sm text-red-700 mt-2 list-disc list-inside">
+                    @foreach($errors->all() as $error)
+                        <li>{{ $error }}</li>
+                    @endforeach
+                </ul>
+            </div>
+        </div>
+    </div>
+    @endif
+
+    @if(session('error'))
+    <div class="bg-red-50 border-l-4 border-red-500 p-4 mb-6">
+        <div class="flex">
+            <div class="ml-3">
+                <p class="text-sm text-red-700">{{ session('error') }}</p>
+            </div>
+        </div>
+    </div>
+    @endif
+
     <div class="bg-blue-50 border-l-4 border-blue-500 p-4 mb-6">
         <div class="flex">
             <div class="ml-3">
@@ -231,7 +256,7 @@
         @csrf
         @method('PUT')
 
-            <input type="hidden" name="payment_method" value="{{ request('payment_method') }}">
+            <input type="hidden" name="payment_method" id="payment_method_hidden" value="{{ request('payment_method') ?: 'USD' }}">
 
         <!-- Custom manual price entry -->
         <div class="mb-4">
@@ -328,6 +353,12 @@ document.addEventListener('DOMContentLoaded', function() {
             if (!selectedMethod) {
                 console.log('No method selected, returning');
                 return; // Don't do anything if no method selected
+            }
+            
+            // Update the hidden payment method field
+            let hiddenPaymentMethod = document.getElementById('payment_method_hidden');
+            if (hiddenPaymentMethod) {
+                hiddenPaymentMethod.value = selectedMethod;
             }
             
             // Show loading indicator
