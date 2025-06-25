@@ -25,6 +25,15 @@ return [
     'lbp_exchange_rate' => 90000,
 
     /**
+     * USD display threshold
+     * 
+     * When LBP amounts convert to USD values below this threshold,
+     * display them in USD instead of LBP for better readability.
+     * Set to 0 to disable this feature.
+     */
+    'usd_display_threshold' => 5.00,
+
+    /**
      * Available complaint types.
      * 
      * These types are used for form validation and in database records.

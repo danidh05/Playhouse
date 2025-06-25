@@ -2,6 +2,10 @@
 
 @section('title', 'Sales')
 
+@php
+use App\Helpers\CurrencyHelper;
+@endphp
+
 @section('toolbar')
 <!-- Sales specific toolbar -->
 <div class="px-4 py-2 bg-white border-b flex justify-between items-center">
@@ -120,22 +124,7 @@
                                 {{ $item->addOn->name }} <span class="text-xs text-primary">(Add-on)</span>
                                 @endif
                                 <span class="text-xs text-gray-500">
-                                    @if($sale->currency === 'LBP' || $sale->payment_method === 'LBP')
-                                        {{ number_format($item->subtotal, 0) }} L.L
-                                    @else
-                                        @php
-                                            // Check if this is stored as LBP (new format) or USD (old format)
-                                            if ($sale->currency === 'USD') {
-                                                // Old format: stored in USD, display as-is
-                                                $usdSubtotal = $item->subtotal;
-                                            } else {
-                                                // New format: stored as LBP equivalent, convert back to USD
-                                                $lbpRate = config('play.lbp_exchange_rate', 90000);
-                                                $usdSubtotal = $item->subtotal / $lbpRate;
-                                            }
-                                        @endphp
-                                        ${{ number_format($usdSubtotal, 2) }}
-                                    @endif
+                                    {!! CurrencyHelper::formatAmount($item->subtotal, $sale->payment_method, $sale->currency ?? $sale->payment_method) !!}
                                 </span>
                             </div>
                             @endforeach
@@ -150,22 +139,7 @@
                         </span>
                     </td>
                     <td class="px-4 py-2 whitespace-nowrap font-semibold">
-                        @if($sale->currency === 'LBP' || $sale->payment_method === 'LBP')
-                            {{ number_format($displayTotal, 0) }} L.L
-                        @else
-                            @php
-                                // Check if this is stored as LBP (new format) or USD (old format)
-                                if ($sale->currency === 'USD') {
-                                    // Old format: stored in USD, display as-is
-                                    $usdTotal = $displayTotal;
-                                } else {
-                                    // New format: stored as LBP equivalent, convert back to USD
-                                    $lbpRate = config('play.lbp_exchange_rate', 90000);
-                                    $usdTotal = $displayTotal / $lbpRate;
-                                }
-                            @endphp
-                            ${{ number_format($usdTotal, 2) }}
-                        @endif
+                        {!! CurrencyHelper::formatAmount($displayTotal, $sale->payment_method, $sale->currency ?? $sale->payment_method) !!}
                         @if($hasCustomPrice)
                         <div class="text-xs text-blue-600 font-normal">(Custom)</div>
                         @endif

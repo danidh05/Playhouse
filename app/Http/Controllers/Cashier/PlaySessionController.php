@@ -61,28 +61,14 @@ class PlaySessionController extends Controller
      * Show the form for starting a new session.
      * If child_id is provided in the query string, it will be pre-selected.
      */
-    public function create(Request $request, Child $child = null)
+    public function create(Child $child = null)
     {
-        // If no specific child was provided via route model binding 
-        // but a child_id was provided in the query string
-        if (!$child && $request->has('child_id')) {
-            $child = Child::find($request->child_id);
-        }
-        
-        // If we still don't have a child, show all children to select from
-        $children = Child::orderBy('name')->get();
-        
-        // Add play session count for each child
-        foreach ($children as $childOption) {
-            $childOption->play_sessions_count = PlaySession::where('child_id', $childOption->id)->count();
-        }
-        
         // Find an active shift for the current cashier
         $activeShift = Shift::where('cashier_id', Auth::id())
                            ->whereNull('closed_at')
                            ->latest()
                            ->first();
-        
+
         if (!$activeShift) {
             // Create a new shift if none exists
             $activeShift = Shift::create([
@@ -92,70 +78,16 @@ class PlaySessionController extends Controller
                 'opened_at' => now(),
             ]);
         }
-        
-        $hourlyRate = config('play.hourly_rate', 10.00);
-        
-        // Check if this would be a free session (for a specific child)
-        $isFreeSession = false;
-        $loyaltyInfo = null;
-        if ($child) {
-            // Count ALL paid sessions (both completed and incomplete with discount < 100%)
-            $paidSessionsCount = PlaySession::where('child_id', $child->id)
-                ->where('discount_pct', '<', 100) // Exclude free sessions
-                ->count();
-            
-            // Check if there's already a free session that was started but not completed
-            $pendingFreeSession = PlaySession::where('child_id', $child->id)
-                ->whereNull('ended_at') // Not completed
-                ->where('discount_pct', '=', 100) // Free session
-                ->exists();
-            
-            // Also get total sessions for debugging
-            $totalSessionsCount = PlaySession::where('child_id', $child->id)->count();
-            $completedFreeSessionsCount = PlaySession::where('child_id', $child->id)
-                ->whereNotNull('ended_at')
-                ->where('discount_pct', '=', 100)
-                ->count();
-            $incompleteSessionsCount = PlaySession::where('child_id', $child->id)
-                ->whereNull('ended_at')
-                ->count();
-            
-            // Every 6th session is free (after 5, 10, 15, etc. paid sessions)
-            // BUT only if there's no pending free session already
-            $isFreeSession = ($paidSessionsCount > 0) && ($paidSessionsCount % 5 === 0) && !$pendingFreeSession;
-            
-            // Calculate loyalty information for display
-            $remainingForFree = $paidSessionsCount > 0 ? (5 - ($paidSessionsCount % 5)) : 5;
-            if ($remainingForFree == 5 && $paidSessionsCount > 0) {
-                $remainingForFree = 0; // They're at a free session milestone
-            }
-            
-            $loyaltyInfo = [
-                'paid_sessions' => $paidSessionsCount,
-                'remaining_for_free' => $remainingForFree,
-                'next_free_at' => $paidSessionsCount + $remainingForFree,
-                'has_pending_free' => $pendingFreeSession
-            ];
 
-            // Optional: Log loyalty program decision for debugging (can be removed in production)
-            if (config('app.debug')) {
-                \Log::info('Loyalty Program Check', [
-                    'child_id' => $child->id,
-                    'child_name' => $child->name,
-                    'total_sessions' => $totalSessionsCount,
-                    'paid_sessions_count' => $paidSessionsCount,
-                    'completed_free_sessions_count' => $completedFreeSessionsCount,
-                    'incomplete_sessions_count' => $incompleteSessionsCount,
-                    'pending_free_session' => $pendingFreeSession,
-                    'is_free_session' => $isFreeSession,
-                    'modulo_result' => $paidSessionsCount % 5,
-                    'expected_next_session' => $paidSessionsCount + 1,
-                    'loyalty_info' => $loyaltyInfo
-                ]);
-            }
+        $hourlyRate = config('play.hourly_rate', 10.00);
+        $children = Child::orderBy('name')->get();
+
+        // Add play session count for each child
+        foreach ($children as $childOption) {
+            $childOption->play_sessions_count = PlaySession::where('child_id', $childOption->id)->count();
         }
-        
-        return view('cashier.sessions.start', compact('child', 'children', 'activeShift', 'hourlyRate', 'isFreeSession', 'loyaltyInfo'));
+
+        return view('cashier.sessions.start', compact('child', 'children', 'activeShift', 'hourlyRate'));
     }
 
     /**
@@ -187,49 +119,7 @@ class PlaySessionController extends Controller
             $childOption->play_sessions_count = PlaySession::where('child_id', $childOption->id)->count();
         }
         
-        // Check if this would be a free session
-        $paidSessionsCount = PlaySession::where('child_id', $child->id)
-            ->where('discount_pct', '<', 100) // Exclude free sessions
-            ->count();
-        
-        // Check if there's already a free session that was started but not completed
-        $pendingFreeSession = PlaySession::where('child_id', $child->id)
-            ->whereNull('ended_at') // Not completed
-            ->where('discount_pct', '=', 100) // Free session
-            ->exists();
-        
-        // Every 6th session is free (after 5, 10, 15, etc. paid sessions)
-        // BUT only if there's no pending free session already
-        $isFreeSession = ($paidSessionsCount > 0) && ($paidSessionsCount % 5 === 0) && !$pendingFreeSession;
-        
-        // Calculate loyalty information for display
-        $remainingForFree = $paidSessionsCount > 0 ? (5 - ($paidSessionsCount % 5)) : 5;
-        if ($remainingForFree == 5 && $paidSessionsCount > 0) {
-            $remainingForFree = 0; // They're at a free session milestone
-        }
-        
-        $loyaltyInfo = [
-            'paid_sessions' => $paidSessionsCount,
-            'remaining_for_free' => $remainingForFree,
-            'next_free_at' => $paidSessionsCount + $remainingForFree,
-            'has_pending_free' => $pendingFreeSession
-        ];
-
-        // Optional: Log loyalty program decision for debugging (can be removed in production)
-        if (config('app.debug')) {
-            \Log::info('Loyalty Program Check (start method)', [
-                'child_id' => $child->id,
-                'child_name' => $child->name,
-                'paid_sessions_count' => $paidSessionsCount,
-                'pending_free_session' => $pendingFreeSession,
-                'is_free_session' => $isFreeSession,
-                'modulo_result' => $paidSessionsCount % 5,
-                'expected_next_session' => $paidSessionsCount + 1,
-                'loyalty_info' => $loyaltyInfo
-            ]);
-        }
-        
-        return view('cashier.sessions.start', compact('child', 'children', 'activeShift', 'hourlyRate', 'isFreeSession', 'loyaltyInfo'));
+        return view('cashier.sessions.start', compact('child', 'children', 'activeShift', 'hourlyRate'));
     }
 
     /**
@@ -238,40 +128,6 @@ class PlaySessionController extends Controller
     public function store(PlaySessionRequest $request)
     {
         $validated = $request->validated();
-        
-        // Check if this should be a free session
-        $childId = $validated['child_id'];
-        $paidSessionsCount = PlaySession::where('child_id', $childId)
-            ->where('discount_pct', '<', 100) // Exclude free sessions
-            ->count();
-        
-        // Check if there's already a free session that was started but not completed
-        $pendingFreeSession = PlaySession::where('child_id', $childId)
-            ->whereNull('ended_at') // Not completed
-            ->where('discount_pct', '=', 100) // Free session
-            ->exists();
-        
-        // Every 6th session is free (after 5, 10, 15, etc. paid sessions)
-        // BUT only if there's no pending free session already
-        $isFreeSession = ($paidSessionsCount > 0) && ($paidSessionsCount % 5 === 0) && !$pendingFreeSession;
-        
-        // Optional: Log loyalty program decision for debugging (can be removed in production)
-        if (config('app.debug')) {
-            \Log::info('Loyalty Program Check (store method)', [
-                'child_id' => $childId,
-                'paid_sessions_count' => $paidSessionsCount,
-                'pending_free_session' => $pendingFreeSession,
-                'is_free_session' => $isFreeSession,
-                'modulo_result' => $paidSessionsCount % 5,
-                'expected_next_session' => $paidSessionsCount + 1
-            ]);
-        }
-        
-        // If this is a free session, override planned_hours and discount_pct
-        if ($isFreeSession) {
-            $validated['planned_hours'] = 1;
-            $validated['discount_pct'] = 100;
-        }
         
         // If start_time is present, set it as started_at
         if (isset($validated['start_time'])) {
@@ -318,13 +174,8 @@ class PlaySessionController extends Controller
         $playSession->user_id = Auth::id();
         $playSession->save();
         
-        $successMessage = 'Play session started successfully';
-        if ($isFreeSession) {
-            $successMessage .= ' (Free loyalty session applied: 1 hour free)';
-        }
-        
         return redirect()->route('cashier.sessions.index')
-            ->with('success', $successMessage);
+            ->with('success', 'Play session started successfully');
     }
     
     /**
@@ -433,7 +284,7 @@ class PlaySessionController extends Controller
         $addonsBaseTotal = $sessionAddOns->sum('pivot.subtotal');
         
         // Convert to selected payment currency for display
-        $paymentMethod = $request->get('payment_method');
+        $paymentMethod = $request->get('payment_method', 'USD'); // Default to USD
         if ($paymentMethod === 'LBP') {
             $lbpRate = config('play.lbp_exchange_rate', 90000);
             $addonsTotal = round($addonsBaseTotal * $lbpRate);

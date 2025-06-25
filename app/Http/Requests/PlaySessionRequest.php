@@ -27,7 +27,7 @@ class PlaySessionRequest extends FormRequest
         return [
             'child_id' => 'required|exists:children,id',
             'shift_id' => 'nullable|exists:shifts,id',
-            'start_time' => ['nullable', 'date', 'before_or_equal:now'],
+            'start_time' => ['nullable', 'date'],
             'discount_pct' => 'nullable|numeric|min:0|max:100',
             'payment_method' => ['nullable', Rule::in($paymentMethods)],
             'planned_hours' => 'nullable|numeric|min:0.1',
